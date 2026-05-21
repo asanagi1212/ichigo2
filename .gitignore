@@ -1,0 +1,10 @@
+node_modules/
+dist/
+tools/
+.env
+.DS_Store
+Thumbs.db
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
