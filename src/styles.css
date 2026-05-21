@@ -67,22 +67,18 @@ textarea {
   height: 100dvh;
   min-height: 100dvh;
   overflow: hidden;
-  padding:
-    calc(10px + var(--safe-top))
-    calc(10px + var(--safe-right))
-    calc(10px + var(--safe-bottom))
-    calc(10px + var(--safe-left));
+  padding: 0;
 }
 
 .phone-frame {
-  height: calc(100dvh - var(--safe-top) - var(--safe-bottom) - 20px);
+  height: 100dvh;
   min-height: 0;
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto;
   background: rgba(249, 246, 243, 0.96);
-  border: 1px solid rgba(255, 255, 255, 0.8);
-  border-radius: 28px;
-  box-shadow: var(--shadow);
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
   overflow: hidden;
   backdrop-filter: blur(24px);
 }
@@ -108,7 +104,7 @@ textarea {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 14px 16px;
+  padding: calc(14px + var(--safe-top)) calc(16px + var(--safe-right)) 14px calc(16px + var(--safe-left));
   border-bottom: 1px solid rgba(217, 206, 195, 0.65);
   background: rgba(249, 246, 243, 0.94);
   backdrop-filter: blur(20px);
@@ -246,6 +242,7 @@ textarea {
 }
 
 .avatar-image {
+  display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -351,7 +348,11 @@ textarea {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 16px 16px;
+  padding:
+    12px
+    calc(16px + var(--safe-right))
+    calc(16px + var(--safe-bottom))
+    calc(16px + var(--safe-left));
   border-top: 1px solid rgba(217, 206, 195, 0.7);
   background: rgba(249, 246, 243, 0.96);
   backdrop-filter: blur(20px);
@@ -511,7 +512,11 @@ textarea {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
-  padding: 18px 16px calc(24px + var(--safe-bottom));
+  padding:
+    calc(18px + var(--safe-top))
+    calc(16px + var(--safe-right))
+    calc(24px + var(--safe-bottom))
+    calc(16px + var(--safe-left));
 }
 
 .nest-hero {
@@ -627,6 +632,7 @@ textarea {
   background: linear-gradient(135deg, #c9b8a9, #a89080);
   color: #fff;
   box-shadow: 0 8px 18px rgba(90, 79, 70, 0.12);
+  overflow: hidden;
 }
 
 .nest-mini-avatar.alt {
@@ -1356,9 +1362,17 @@ textarea {
   .app-shell {
     display: grid;
     place-items: center;
+    padding:
+      calc(10px + var(--safe-top))
+      calc(10px + var(--safe-right))
+      calc(10px + var(--safe-bottom))
+      calc(10px + var(--safe-left));
   }
 
   .phone-frame {
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    border-radius: 28px;
+    box-shadow: var(--shadow);
     width: min(100%, 460px);
     height: min(920px, calc(100dvh - var(--safe-top) - var(--safe-bottom) - 20px));
   }
