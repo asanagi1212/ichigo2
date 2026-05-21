@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: ichigo2
+    runtime: node
+    plan: free
+    region: singapore
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    autoDeployTrigger: commit
+    healthCheckPath: /
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_BASE_URL
+        value: https://api.openai.com
+      - key: OPENAI_CHAT_PATH
+        value: /v1/chat/completions
+      - key: OPENAI_MODEL
+        value: gpt-4o-mini
+      - key: SYSTEM_PROMPT
+        sync: false
+      - key: HTTPS_PROXY
+        sync: false
