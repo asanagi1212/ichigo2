@@ -1780,12 +1780,116 @@ export default function App() {
   }, [messages, activeTab]);
 
   useEffect(() => {
+    const root = document.documentElement;
+    const composerNode = composerRef.current;
+    if (!composerNode) {
+      return;
+    }
+
+    function syncComposerHeight() {
+      root.style.setProperty("--composer-height", `${Math.round(composerNode.offsetHeight)}px`);
+    }
+
+    syncComposerHeight();
+
+    const resizeObserver =
+      typeof ResizeObserver !== "undefined" ? new ResizeObserver(syncComposerHeight) : null;
+    resizeObserver?.observe(composerNode);
+    window.addEventListener("resize", syncComposerHeight);
+    window.visualViewport?.addEventListener("resize", syncComposerHeight);
+
+    return () => {
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", syncComposerHeight);
+      window.visualViewport?.removeEventListener("resize", syncComposerHeight);
+      root.style.removeProperty("--composer-height");
+    };
+  }, [activeTab]);
+
+  useEffect(() => {
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", registerServiceWorker, { once: true });
     }
 
     return () => {
       window.removeEventListener("load", registerServiceWorker);
+    };
+  }, []);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const viewport = window.visualViewport;
+    let frameId = 0;
+    let settleTimeoutId = 0;
+    let maxViewportHeight = Math.max(window.innerHeight, viewport?.height || 0);
+
+    function syncViewportHeight() {
+      frameId = 0;
+      const innerHeight = window.innerHeight;
+      const viewportHeight = viewport?.height || innerHeight;
+      const viewportOffsetTop = viewport?.offsetTop || 0;
+      const visibleHeight = Math.round(viewportHeight + viewportOffsetTop);
+
+      maxViewportHeight = Math.max(maxViewportHeight, innerHeight, visibleHeight);
+
+      const keyboardInset = maxViewportHeight - visibleHeight;
+      const keyboardOpen = keyboardInset > 120;
+      const appHeight = keyboardOpen
+        ? visibleHeight
+        : Math.max(innerHeight, visibleHeight, maxViewportHeight);
+
+      root.style.setProperty("--app-height", `${Math.round(appHeight)}px`);
+      root.dataset.keyboardOpen = keyboardOpen ? "true" : "false";
+
+      if (window.scrollY > 0) {
+        window.scrollTo(0, 0);
+      }
+    }
+
+    function scheduleViewportSync() {
+      if (frameId) {
+        cancelAnimationFrame(frameId);
+      }
+
+      frameId = window.requestAnimationFrame(syncViewportHeight);
+    }
+
+    function settleViewport() {
+      scheduleViewportSync();
+      window.clearTimeout(settleTimeoutId);
+      settleTimeoutId = window.setTimeout(scheduleViewportSync, 320);
+    }
+
+    function resetViewportBounds() {
+      maxViewportHeight = Math.max(window.innerHeight, viewport?.height || 0);
+      settleViewport();
+    }
+
+    settleViewport();
+
+    window.addEventListener("resize", settleViewport);
+    window.addEventListener("orientationchange", resetViewportBounds);
+    window.addEventListener("focusin", settleViewport);
+    window.addEventListener("focusout", settleViewport);
+    window.addEventListener("pageshow", resetViewportBounds);
+    viewport?.addEventListener("resize", settleViewport);
+    viewport?.addEventListener("scroll", settleViewport);
+
+    return () => {
+      if (frameId) {
+        cancelAnimationFrame(frameId);
+      }
+
+      window.clearTimeout(settleTimeoutId);
+      window.removeEventListener("resize", settleViewport);
+      window.removeEventListener("orientationchange", resetViewportBounds);
+      window.removeEventListener("focusin", settleViewport);
+      window.removeEventListener("focusout", settleViewport);
+      window.removeEventListener("pageshow", resetViewportBounds);
+      viewport?.removeEventListener("resize", settleViewport);
+      viewport?.removeEventListener("scroll", settleViewport);
+      delete root.dataset.keyboardOpen;
+      root.style.removeProperty("--app-height");
     };
   }, []);
 
