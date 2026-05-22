@@ -40,6 +40,7 @@ async function proxyReply(messages, settings) {
     body: JSON.stringify({
       messages,
       settings: {
+        apiKey: settings.apiKey,
         baseUrl: settings.baseUrl,
         chatPath: settings.chatPath,
         model: settings.model,

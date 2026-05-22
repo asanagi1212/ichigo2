@@ -29,6 +29,7 @@ const defaultChecklist = [
 
 const defaults = {
   mode: "mock",
+  apiKey: "",
   baseUrl: "https://api.openai.com",
   chatPath: "/v1/chat/completions",
   model: "gpt-4o-mini",
@@ -91,12 +92,11 @@ export function loadSettings() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     const parsed = raw ? JSON.parse(raw) : {};
-    const { apiKey, ...settings } = parsed;
 
     return {
       ...defaults,
-      ...settings,
-      nestChecklist: sanitizeChecklist(settings.nestChecklist)
+      ...parsed,
+      nestChecklist: sanitizeChecklist(parsed.nestChecklist)
     };
   } catch {
     return { ...defaults, nestChecklist: sanitizeChecklist(defaults.nestChecklist) };
@@ -104,11 +104,10 @@ export function loadSettings() {
 }
 
 export function saveSettings(settings) {
-  const { apiKey, ...safeSettings } = settings;
   const next = {
     ...defaults,
-    ...safeSettings,
-    nestChecklist: sanitizeChecklist(safeSettings.nestChecklist)
+    ...settings,
+    nestChecklist: sanitizeChecklist(settings.nestChecklist)
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
   return next;

@@ -109,6 +109,19 @@ function SettingsDialog({ open, settings, onClose, onSave }) {
         </label>
 
         <label>
+          API Key
+          <input
+            name="apiKey"
+            type="password"
+            value={draft.apiKey || ""}
+            onChange={handleChange}
+            placeholder="sk-..."
+            autoComplete="off"
+            spellCheck="false"
+          />
+        </label>
+
+        <label>
           Base URL
           <input
             name="baseUrl"
@@ -154,6 +167,11 @@ function SettingsDialog({ open, settings, onClose, onSave }) {
 
         <p className="settings-note">
           API Key 由后端 `.env` 读取，前端不会保存或暴露真实密钥。
+        </p>
+
+        <p className="settings-note">
+          API Key entered here is stored only on this device and sent to your own proxy when you chat.
+          If left blank, the server-side OPENAI_API_KEY will be used as a fallback.
         </p>
 
         <button className="primary-button" type="submit">

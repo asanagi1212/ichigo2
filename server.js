@@ -1,10 +1,10 @@
 import { createServer } from "node:http";
 import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
-import { connect as tlsConnect } from "node:tls";
 import { readFileSync, existsSync } from "node:fs";
 import { extname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { connect as tlsConnect } from "node:tls";
 
 const root = fileURLToPath(new URL(".", import.meta.url));
 const port = Number(process.env.PORT || 8787);
@@ -57,7 +57,7 @@ function readJsonBody(request) {
       body += chunk;
 
       if (body.length > 25 * 1024 * 1024) {
-        rejectBody(new Error("请求内容过大"));
+        rejectBody(new Error("Request body is too large."));
         request.destroy();
       }
     });
@@ -66,7 +66,7 @@ function readJsonBody(request) {
       try {
         resolveBody(body ? JSON.parse(body) : {});
       } catch {
-        rejectBody(new Error("请求 JSON 格式不正确"));
+        rejectBody(new Error("Request JSON is invalid."));
       }
     });
 
@@ -74,9 +74,23 @@ function readJsonBody(request) {
   });
 }
 
+function pickSetting(...values) {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+  }
+
+  return "";
+}
+
 function buildEndpoint(clientSettings = {}) {
-  const baseUrl = process.env.OPENAI_BASE_URL || clientSettings.baseUrl || "https://api.openai.com";
-  const chatPath = process.env.OPENAI_CHAT_PATH || clientSettings.chatPath || "/v1/chat/completions";
+  const baseUrl = pickSetting(clientSettings.baseUrl, process.env.OPENAI_BASE_URL, "https://api.openai.com");
+  const chatPath = pickSetting(
+    clientSettings.chatPath,
+    process.env.OPENAI_CHAT_PATH,
+    "/v1/chat/completions"
+  );
 
   return new URL(chatPath, baseUrl).toString();
 }
@@ -109,11 +123,11 @@ function buildMessageContent(message) {
 }
 
 function buildChatPayload({ messages = [], settings = {} }) {
-  const model = process.env.OPENAI_MODEL || settings.model;
-  const systemPrompt = settings.systemPrompt || process.env.SYSTEM_PROMPT;
+  const model = pickSetting(settings.model, process.env.OPENAI_MODEL);
+  const systemPrompt = pickSetting(settings.systemPrompt, process.env.SYSTEM_PROMPT);
 
   if (!model) {
-    throw new Error("请在 .env 里设置 OPENAI_MODEL，或在前端模型设置里填写 Model。");
+    throw new Error("No model is configured. Enter one in the app settings or set OPENAI_MODEL on the server.");
   }
 
   const apiMessages = [];
@@ -140,12 +154,7 @@ function buildChatPayload({ messages = [], settings = {} }) {
 }
 
 function extractReply(data) {
-  return (
-    data?.choices?.[0]?.message?.content ||
-    data?.output_text ||
-    data?.content?.[0]?.text ||
-    ""
-  );
+  return data?.choices?.[0]?.message?.content || data?.output_text || data?.content?.[0]?.text || "";
 }
 
 function getProxyUrl() {
@@ -185,7 +194,7 @@ function requestDirect(url, options, body) {
     );
 
     request.on("timeout", () => {
-      request.destroy(new Error("模型接口连接超时"));
+      request.destroy(new Error("Model request timed out."));
     });
     request.on("error", rejectRequest);
     request.end(body);
@@ -199,7 +208,7 @@ function requestViaHttpProxy(url, options, body, proxyUrl) {
     const targetPort = endpoint.port || (endpoint.protocol === "https:" ? 443 : 80);
 
     if (endpoint.protocol !== "https:") {
-      rejectRequest(new Error("当前代理实现仅支持 HTTPS 模型接口"));
+      rejectRequest(new Error("The built-in proxy flow only supports HTTPS upstream endpoints."));
       return;
     }
 
@@ -214,7 +223,7 @@ function requestViaHttpProxy(url, options, body, proxyUrl) {
     connectRequest.on("connect", (connectResponse, socket) => {
       if ((connectResponse.statusCode || 0) >= 400) {
         socket.destroy();
-        rejectRequest(new Error(`本地代理连接失败: ${connectResponse.statusCode}`));
+        rejectRequest(new Error(`Local proxy connection failed with status ${connectResponse.statusCode}.`));
         return;
       }
 
@@ -245,14 +254,14 @@ function requestViaHttpProxy(url, options, body, proxyUrl) {
       );
 
       request.on("timeout", () => {
-        request.destroy(new Error("模型接口连接超时"));
+        request.destroy(new Error("Model request timed out."));
       });
       request.on("error", rejectRequest);
       request.end(body);
     });
 
     connectRequest.on("timeout", () => {
-      connectRequest.destroy(new Error("连接本地代理超时"));
+      connectRequest.destroy(new Error("Connecting to the local proxy timed out."));
     });
     connectRequest.on("error", rejectRequest);
     connectRequest.end();
@@ -270,17 +279,17 @@ async function requestModel(url, options, body) {
 }
 
 async function handleChat(request, response) {
-  const apiKey = process.env.OPENAI_API_KEY;
-
-  if (!apiKey) {
-    sendJson(response, 500, {
-      error: "后端没有配置 OPENAI_API_KEY。请复制 .env.example 为 .env，并填入你的模型 API Key。"
-    });
-    return;
-  }
-
   try {
     const body = await readJsonBody(request);
+    const apiKey = pickSetting(body.settings?.apiKey, process.env.OPENAI_API_KEY);
+
+    if (!apiKey) {
+      sendJson(response, 500, {
+        error: "No API key is configured. Enter one in the phone settings or set OPENAI_API_KEY on the server."
+      });
+      return;
+    }
+
     const endpoint = buildEndpoint(body.settings);
     const payload = buildChatPayload(body);
 
@@ -307,7 +316,7 @@ async function handleChat(request, response) {
 
     if (upstreamResponse.statusCode < 200 || upstreamResponse.statusCode >= 300) {
       sendJson(response, upstreamResponse.statusCode, {
-        error: data?.error?.message || data?.message || text || "模型接口请求失败"
+        error: data?.error?.message || data?.message || text || "Upstream model request failed."
       });
       return;
     }
@@ -318,7 +327,7 @@ async function handleChat(request, response) {
     });
   } catch (error) {
     sendJson(response, 500, {
-      error: error.cause?.message || error.message || "后端代理出错"
+      error: error.cause?.message || error.message || "Backend proxy request failed."
     });
   }
 }
