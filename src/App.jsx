@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+﻿import { useEffect, useRef, useState } from "react";
 import { getAssistantReply } from "./chat-client.js";
 import { loadSettings, saveSettings } from "./storage.js";
 
@@ -17,10 +17,10 @@ const initialMessages = [
 ];
 
 const nestFeatureCards = [
-  { title: "我们的日记", subtitle: "把细碎的开心都收进来", emoji: "📔", tone: "warm" },
+  { title: "我们的日记", subtitle: "把细碎的开心都收进来", emoji: "📝", tone: "warm" },
   { title: "记忆相册", subtitle: "留给以后反复翻看的瞬间", emoji: "🖼️", tone: "lavender" },
-  { title: "待办提醒", subtitle: "今天也一起把生活过顺", emoji: "📝", tone: "sage" },
-  { title: "心愿清单", subtitle: "想做的事慢慢实现", emoji: "💛", tone: "rose" }
+  { title: "待办提醒", subtitle: "今天也一起把生活过顺", emoji: "📘", tone: "sage" },
+  { title: "心愿清单", subtitle: "想做的事慢慢实现", emoji: "💍", tone: "rose" }
 ];
 
 function IconButton({ label, children, ...props }) {
@@ -57,9 +57,12 @@ function Avatar({ text, image, className = "", clickable = false, onClick, label
 function SettingsDialog({ open, settings, onClose, onSave }) {
   const dialogRef = useRef(null);
   const [draft, setDraft] = useState(settings);
+  const [isTestingModel, setIsTestingModel] = useState(false);
+  const [testResult, setTestResult] = useState(null);
 
   useEffect(() => {
     setDraft(settings);
+    setTestResult(null);
   }, [settings]);
 
   useEffect(() => {
@@ -80,11 +83,68 @@ function SettingsDialog({ open, settings, onClose, onSave }) {
   function handleChange(event) {
     const { name, value } = event.target;
     setDraft((current) => ({ ...current, [name]: value }));
+    setTestResult(null);
+  }
+
+  function handleResetModel() {
+    setDraft((current) => ({ ...current, model: "gpt-4o-mini" }));
+    setTestResult(null);
   }
 
   function handleSubmit(event) {
     event.preventDefault();
     onSave(draft);
+  }
+
+  async function handleTestModel() {
+    setIsTestingModel(true);
+    setTestResult(null);
+
+    try {
+      const response = await fetch("/api/test-model", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          settings: {
+            apiKey: draft.apiKey,
+            baseUrl: draft.baseUrl,
+            chatPath: draft.chatPath,
+            model: draft.model,
+            systemPrompt: draft.systemPrompt
+          }
+        })
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        setTestResult({
+          status: "error",
+          message: data.error || `Request failed: ${response.status}`,
+          endpoint: data.endpoint || draft.baseUrl,
+          model: data.model || draft.model
+        });
+        return;
+      }
+
+      setTestResult({
+        status: "success",
+        message: data.content || "Model request succeeded.",
+        endpoint: data.endpoint || draft.baseUrl,
+        model: data.model || draft.model
+      });
+    } catch (error) {
+      setTestResult({
+        status: "error",
+        message: error.message || "Model test failed.",
+        endpoint: draft.baseUrl,
+        model: draft.model
+      });
+    } finally {
+      setIsTestingModel(false);
+    }
   }
 
   return (
@@ -154,6 +214,10 @@ function SettingsDialog({ open, settings, onClose, onSave }) {
           />
         </label>
 
+        <button className="ghost-button ghost-button-muted" type="button" onClick={handleResetModel}>
+          Reset Model to gpt-4o-mini
+        </button>
+
         <label>
           System Prompt
           <textarea
@@ -166,17 +230,40 @@ function SettingsDialog({ open, settings, onClose, onSave }) {
         </label>
 
         <p className="settings-note">
-          API Key 由后端 `.env` 读取，前端不会保存或暴露真实密钥。
+          API Key 只会保存在当前设备上，并通过你自己的代理服务发出请求。
+          如果这里留空，后端会回退使用服务器上的 OPENAI_API_KEY。
         </p>
 
         <p className="settings-note">
-          API Key entered here is stored only on this device and sent to your own proxy when you chat.
-          If left blank, the server-side OPENAI_API_KEY will be used as a fallback.
+          点击 “Test Model” 可以立刻验证当前 Base URL、Chat Path、Model 和 Token 是否可用，
+          这样切换不同模型或中转站时会更省事。
         </p>
 
-        <button className="primary-button" type="submit">
-          保存配置
-        </button>
+        <div className="settings-action-row">
+          <button
+            className="ghost-button ghost-button-muted"
+            type="button"
+            onClick={handleTestModel}
+            disabled={isTestingModel}
+          >
+            {isTestingModel ? "Testing..." : "Test Model"}
+          </button>
+
+          <button className="primary-button" type="submit">
+            保存配置
+          </button>
+        </div>
+
+        {testResult ? (
+          <div className={`settings-test-result ${testResult.status}`}>
+            <p className="settings-test-title">
+              {testResult.status === "success" ? "Model Test Succeeded" : "Model Test Failed"}
+            </p>
+            <p className="settings-test-meta">Model: {testResult.model || "-"}</p>
+            <p className="settings-test-meta">Endpoint: {testResult.endpoint || "-"}</p>
+            <p className="settings-test-message">{testResult.message}</p>
+          </div>
+        ) : null}
       </form>
     </dialog>
   );
@@ -275,7 +362,7 @@ function ProfileQuickEditor({ open, settings, onClose, onSave }) {
           />
           <div>
             <p className="session-label">即时预览</p>
-            <h3 className="profile-name">{draft.contactName || "联系人工助手"}</h3>
+            <h3 className="profile-name">{draft.contactName || "联系人助手"}</h3>
           </div>
         </div>
 
@@ -288,7 +375,7 @@ function ProfileQuickEditor({ open, settings, onClose, onSave }) {
               maxLength="20"
               value={draft.contactName || ""}
               onChange={handleFieldChange}
-              placeholder="联系人工助手"
+              placeholder="联系人助手"
             />
           </label>
 
@@ -431,12 +518,12 @@ function NestHeroEditor({ open, settings, onClose, onSave }) {
                 {draft.nestLeftAvatarImage ? (
                   <img className="avatar-image" src={draft.nestLeftAvatarImage} alt="左侧头像预览" />
                 ) : (
-                  <span>{draft.nestLeftAvatar || "阿"}</span>
+                  <span>{draft.nestLeftAvatar || "A"}</span>
                 )}
               </div>
               <div>
                 <p className="session-label">左侧角色</p>
-                <h3 className="profile-name">{draft.nestLeftName || "阿橘"}</h3>
+                <h3 className="profile-name">{draft.nestLeftName || "阿杉"}</h3>
               </div>
             </div>
 
@@ -448,7 +535,7 @@ function NestHeroEditor({ open, settings, onClose, onSave }) {
                 maxLength="12"
                 value={draft.nestLeftName || ""}
                 onChange={handleFieldChange}
-                placeholder="阿橘"
+                placeholder="阿杉"
               />
             </label>
 
@@ -460,7 +547,7 @@ function NestHeroEditor({ open, settings, onClose, onSave }) {
                 maxLength="2"
                 value={draft.nestLeftAvatar || ""}
                 onChange={handleFieldChange}
-                placeholder="阿"
+                placeholder="A"
               />
             </label>
 
@@ -487,7 +574,7 @@ function NestHeroEditor({ open, settings, onClose, onSave }) {
                 {draft.nestRightAvatarImage ? (
                   <img className="avatar-image" src={draft.nestRightAvatarImage} alt="右侧头像预览" />
                 ) : (
-                  <span>{draft.nestRightAvatar || "窝"}</span>
+                  <span>{draft.nestRightAvatar || "B"}</span>
                 )}
               </div>
               <div>
@@ -516,7 +603,7 @@ function NestHeroEditor({ open, settings, onClose, onSave }) {
                 maxLength="2"
                 value={draft.nestRightAvatar || ""}
                 onChange={handleFieldChange}
-                placeholder="窝"
+                placeholder="B"
               />
             </label>
 
@@ -549,7 +636,7 @@ function NestHeroEditor({ open, settings, onClose, onSave }) {
         </label>
 
         <p className="settings-note">
-          保存后会按你设置的起始日期重新开始计数；头像支持上传本地图片，不上传时会显示文字头像。
+          保存后会按你设置的起始日期重新计算天数；头像支持上传本地图片，不上传时会显示文字头像。
         </p>
 
         <button className="primary-button" type="submit">
@@ -662,7 +749,7 @@ function ChecklistEditor({ open, checklist, onClose, onSave }) {
         <div className="settings-header">
           <div>
             <p className="settings-kicker">清单编辑</p>
-            <h2>请记住</h2>
+            <h2>提醒事项</h2>
           </div>
           <button className="ghost-button" type="button" onClick={onClose}>
             关闭
@@ -1318,7 +1405,7 @@ function NestPage({ settings, onSaveHeroSettings, onSaveChecklist }) {
                 {previewHero.nestLeftAvatarImage ? (
                   <img className="avatar-image" src={previewHero.nestLeftAvatarImage} alt={previewHero.nestLeftName || "左侧头像"} />
                 ) : (
-                  <span>{previewHero.nestLeftAvatar || "阿"}</span>
+                  <span>{previewHero.nestLeftAvatar || "A"}</span>
                 )}
               </div>
             </button>
@@ -1344,7 +1431,7 @@ function NestPage({ settings, onSaveHeroSettings, onSaveChecklist }) {
               </div>
             ) : (
               <button className="plain-inline-trigger" type="button" onClick={() => setActiveHeroEditor("left")}>
-                {settings.nestLeftName || "阿橘"}
+                {settings.nestLeftName || "阿杉"}
               </button>
             )}
           </div>
@@ -1359,7 +1446,7 @@ function NestPage({ settings, onSaveHeroSettings, onSaveChecklist }) {
                 {previewHero.nestRightAvatarImage ? (
                   <img className="avatar-image" src={previewHero.nestRightAvatarImage} alt={previewHero.nestRightName || "右侧头像"} />
                 ) : (
-                  <span>{previewHero.nestRightAvatar || "窝"}</span>
+                  <span>{previewHero.nestRightAvatar || "B"}</span>
                 )}
               </div>
             </button>
@@ -1426,7 +1513,7 @@ function NestPage({ settings, onSaveHeroSettings, onSaveChecklist }) {
       <section className="nest-card checklist-card">
         <div className="card-header-row">
           <div className="section-title-row">
-            <span className="section-emoji">🌿</span>
+            <span className="section-emoji">🌷</span>
             <span className="section-title">请记住</span>
           </div>
         </div>
@@ -1611,11 +1698,11 @@ function ChatScreen({
             aria-label="编辑备注和头像"
           >
             <p className="chat-subtitle">Chat</p>
-            <h1>{settings.contactName || "联系人工助手"}</h1>
+            <h1>{settings.contactName || "联系人助手"}</h1>
           </button>
         </div>
 
-        <IconButton label="连接配置" onClick={() => setSettingsOpen(true)}>
+        <IconButton label="连接设置" onClick={() => setSettingsOpen(true)}>
           <MoreIcon />
         </IconButton>
       </header>

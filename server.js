@@ -153,10 +153,125 @@ function buildChatPayload({ messages = [], settings = {} }) {
   };
 }
 
-function extractReply(data) {
-  return data?.choices?.[0]?.message?.content || data?.output_text || data?.content?.[0]?.text || "";
+function normalizeReplyText(value) {
+  if (typeof value === "string") {
+    return value.trim();
+  }
+
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => normalizeReplyText(item))
+      .filter(Boolean)
+      .join("\n")
+      .trim();
+  }
+
+  if (!value || typeof value !== "object") {
+    return "";
+  }
+
+  if (typeof value.text === "string") {
+    return value.text.trim();
+  }
+
+  if (typeof value.content === "string") {
+    return value.content.trim();
+  }
+
+  if (Array.isArray(value.parts)) {
+    return normalizeReplyText(value.parts);
+  }
+
+  if (Array.isArray(value.content)) {
+    return normalizeReplyText(value.content);
+  }
+
+  return "";
 }
 
+function extractReply(data) {
+  return (
+    normalizeReplyText(data?.choices?.[0]?.message?.content) ||
+    normalizeReplyText(data?.choices?.[0]?.delta?.content) ||
+    normalizeReplyText(data?.choices?.[0]?.text) ||
+    normalizeReplyText(data?.output_text) ||
+    normalizeReplyText(data?.content) ||
+    normalizeReplyText(data?.candidates?.[0]?.content?.parts) ||
+    normalizeReplyText(data?.candidates?.[0]?.content) ||
+    normalizeReplyText(data?.message?.content) ||
+    ""
+  );
+}
+
+function formatUpstreamError(data, text, settings = {}) {
+  const message = data?.error?.message || data?.message || text || "Upstream model request failed.";
+  const configuredModel = pickSetting(settings.model, process.env.OPENAI_MODEL);
+  const normalized = String(message).toLowerCase();
+  const looksLikeModelAccessIssue =
+    normalized.includes("no access to model") ||
+    normalized.includes("model_not_found") ||
+    normalized.includes("does not exist") ||
+    normalized.includes("invalid model") ||
+    normalized.includes("unsupported model");
+
+  if (!looksLikeModelAccessIssue || !configuredModel) {
+    return message;
+  }
+
+  return `${message} Current model: ${configuredModel}. Update the Model field in settings to a model your token can use.`;
+}
+
+function parseUpstreamJson(text) {
+  try {
+    return text ? JSON.parse(text) : {};
+  } catch {
+    return { raw: text };
+  }
+}
+
+async function sendUpstreamRequest({ endpoint, apiKey, payload }) {
+  const upstreamResponse = await requestModel(
+    endpoint,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`
+      }
+    },
+    JSON.stringify(payload)
+  );
+
+  return {
+    statusCode: upstreamResponse.statusCode,
+    text: upstreamResponse.text,
+    data: parseUpstreamJson(upstreamResponse.text)
+  };
+}
+
+function buildModelTestPayload(settings = {}) {
+  const model = pickSetting(settings.model, process.env.OPENAI_MODEL);
+  const systemPrompt = pickSetting(settings.systemPrompt, process.env.SYSTEM_PROMPT);
+
+  if (!model) {
+    throw new Error("No model is configured. Enter one in the app settings or set OPENAI_MODEL on the server.");
+  }
+
+  const messages = [];
+
+  if (systemPrompt) {
+    messages.push({ role: "system", content: systemPrompt });
+  }
+
+  messages.push({ role: "user", content: "Reply with OK only." });
+
+  return {
+    model,
+    messages,
+    max_tokens: 8,
+    temperature: 0
+  };
+}
 function getProxyUrl() {
   return (
     process.env.HTTPS_PROXY ||
@@ -292,38 +407,67 @@ async function handleChat(request, response) {
 
     const endpoint = buildEndpoint(body.settings);
     const payload = buildChatPayload(body);
+    const upstream = await sendUpstreamRequest({ endpoint, apiKey, payload });
 
-    const upstreamResponse = await requestModel(
-      endpoint,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`
-        }
-      },
-      JSON.stringify(payload)
-    );
-
-    const text = upstreamResponse.text;
-    let data;
-
-    try {
-      data = text ? JSON.parse(text) : {};
-    } catch {
-      data = { raw: text };
+    if (upstream.statusCode < 200 || upstream.statusCode >= 300) {
+      sendJson(response, upstream.statusCode, {
+        error: formatUpstreamError(upstream.data, upstream.text, body.settings)
+      });
+      return;
     }
 
-    if (upstreamResponse.statusCode < 200 || upstreamResponse.statusCode >= 300) {
-      sendJson(response, upstreamResponse.statusCode, {
-        error: data?.error?.message || data?.message || text || "Upstream model request failed."
+    const reply = extractReply(upstream.data);
+
+    if (!reply) {
+      sendJson(response, 502, {
+        error: "The model request succeeded, but the upstream response did not contain readable assistant text."
       });
       return;
     }
 
     sendJson(response, 200, {
-      content: extractReply(data),
-      raw: data
+      content: reply,
+      raw: upstream.data
+    });
+  } catch (error) {
+    sendJson(response, 500, {
+      error: error.cause?.message || error.message || "Backend proxy request failed."
+    });
+  }
+}
+
+async function handleModelTest(request, response) {
+  try {
+    const body = await readJsonBody(request);
+    const apiKey = pickSetting(body.settings?.apiKey, process.env.OPENAI_API_KEY);
+
+    if (!apiKey) {
+      sendJson(response, 500, {
+        error: "No API key is configured. Enter one in the phone settings or set OPENAI_API_KEY on the server."
+      });
+      return;
+    }
+
+    const endpoint = buildEndpoint(body.settings);
+    const payload = buildModelTestPayload(body.settings);
+    const upstream = await sendUpstreamRequest({ endpoint, apiKey, payload });
+
+    if (upstream.statusCode < 200 || upstream.statusCode >= 300) {
+      sendJson(response, upstream.statusCode, {
+        ok: false,
+        endpoint,
+        model: payload.model,
+        error: formatUpstreamError(upstream.data, upstream.text, body.settings)
+      });
+      return;
+    }
+
+    sendJson(response, 200, {
+      ok: true,
+      endpoint,
+      model: payload.model,
+      content: extractReply(upstream.data) || "OK",
+      raw: upstream.data
     });
   } catch (error) {
     sendJson(response, 500, {
@@ -384,6 +528,11 @@ createServer((request, response) => {
 
   if (request.url?.startsWith("/api/chat") && request.method === "POST") {
     handleChat(request, response);
+    return;
+  }
+
+  if (request.url?.startsWith("/api/test-model") && request.method === "POST") {
+    handleModelTest(request, response);
     return;
   }
 

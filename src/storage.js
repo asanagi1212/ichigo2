@@ -107,6 +107,7 @@ export function saveSettings(settings) {
   const next = {
     ...defaults,
     ...settings,
+    model: typeof settings.model === "string" && settings.model.trim() ? settings.model.trim() : defaults.model,
     nestChecklist: sanitizeChecklist(settings.nestChecklist)
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(next));

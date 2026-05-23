@@ -1305,6 +1305,18 @@ textarea {
   color: white;
 }
 
+.settings-action-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.settings-action-row .ghost-button,
+.settings-action-row .primary-button {
+  flex: 1;
+}
+
 .settings-note {
   margin: 14px 0 18px;
   padding: 12px 14px;
@@ -1312,6 +1324,46 @@ textarea {
   background: rgba(212, 196, 183, 0.28);
   color: var(--foreground);
   line-height: 1.55;
+}
+
+.settings-test-result {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(217, 206, 195, 0.8);
+  line-height: 1.55;
+}
+
+.settings-test-result.success {
+  background: rgba(227, 241, 232, 0.78);
+  border-color: rgba(117, 161, 130, 0.35);
+}
+
+.settings-test-result.error {
+  background: rgba(248, 230, 226, 0.82);
+  border-color: rgba(194, 126, 112, 0.38);
+}
+
+.settings-test-title,
+.settings-test-meta,
+.settings-test-message {
+  margin: 0;
+}
+
+.settings-test-title {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.settings-test-meta {
+  margin-top: 6px;
+  color: var(--muted);
+  word-break: break-word;
+}
+
+.settings-test-message {
+  margin-top: 8px;
+  word-break: break-word;
 }
 
 .profile-note {
