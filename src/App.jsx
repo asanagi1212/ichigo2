@@ -1,6 +1,7 @@
 ﻿import { useEffect, useRef, useState } from "react";
 import { getAssistantReply } from "./chat-client.js";
 import { loadSettings, saveSettings } from "./storage.js";
+import { useKeyboardCompat } from "./useKeyboardCompat.js";
 
 function createId() {
   return crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -228,16 +229,6 @@ function SettingsDialog({ open, settings, onClose, onSave }) {
             placeholder="你是一个专业、简洁、可靠的中文助手。"
           />
         </label>
-
-        <p className="settings-note">
-          API Key 只会保存在当前设备上，并通过你自己的代理服务发出请求。
-          如果这里留空，后端会回退使用服务器上的 OPENAI_API_KEY。
-        </p>
-
-        <p className="settings-note">
-          点击 “Test Model” 可以立刻验证当前 Base URL、Chat Path、Model 和 Token 是否可用，
-          这样切换不同模型或中转站时会更省事。
-        </p>
 
         <div className="settings-action-row">
           <button
@@ -1102,6 +1093,7 @@ function formatSinceDate(dateStr) {
 
 function NestPage({ settings, onSaveHeroSettings, onSaveChecklist }) {
   const checklist = settings.nestChecklist || [];
+  const nestPageRef = useRef(null);
   const leftFileInputRef = useRef(null);
   const rightFileInputRef = useRef(null);
   const checklistClickTimerRef = useRef(null);
@@ -1149,6 +1141,48 @@ function NestPage({ settings, onSaveHeroSettings, onSaveChecklist }) {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!activeHeroEditor && !activeChecklistEditor) {
+      return;
+    }
+
+    let frameId = 0;
+    let settleTimeoutId = 0;
+
+    function keepEditorInView() {
+      const pageNode = nestPageRef.current;
+      if (!pageNode) {
+        return;
+      }
+
+      const focusedControl = pageNode.querySelector("input:focus, textarea:focus, select:focus");
+      const target =
+        focusedControl?.closest(".checklist-inline-item-edit, .checklist-inline-group-head, .nest-inline-editor, .nest-date-editor") ||
+        focusedControl;
+
+      if (!target) {
+        return;
+      }
+
+      target.scrollIntoView({
+        block: "nearest",
+        inline: "nearest",
+        behavior: "auto"
+      });
+    }
+
+    frameId = window.requestAnimationFrame(keepEditorInView);
+    settleTimeoutId = window.setTimeout(keepEditorInView, 180);
+
+    return () => {
+      if (frameId) {
+        cancelAnimationFrame(frameId);
+      }
+
+      window.clearTimeout(settleTimeoutId);
+    };
+  }, [activeHeroEditor, activeChecklistEditor]);
 
   function persistHero(nextDraft) {
     onSaveHeroSettings({ ...settings, ...nextDraft });
@@ -1381,7 +1415,7 @@ function NestPage({ settings, onSaveHeroSettings, onSaveChecklist }) {
   const days = daysSince(previewHero.nestStartDate);
 
   return (
-    <div className="nest-page">
+    <div className="nest-page" ref={nestPageRef}>
       <section className="nest-hero">
         <input
           ref={leftFileInputRef}
@@ -1637,6 +1671,7 @@ function ChatScreen({
   profileEditorOpen,
   modeMenuOpen,
   messageListRef,
+  messageEndRef,
   textareaRef,
   imageInputRef,
   composerRef,
@@ -1645,6 +1680,7 @@ function ChatScreen({
   setSettingsOpen,
   setProfileEditorOpen,
   setModeMenuOpen,
+  onComposerPointerDown,
   onBack,
   onSubmit,
   onSelectMode,
@@ -1721,6 +1757,7 @@ function ChatScreen({
               onAssistantAvatarClick={openProfileEditor}
             />
           ))}
+          <div className="messages-end-anchor" ref={messageEndRef} aria-hidden="true"></div>
         </div>
       </section>
 
@@ -1763,7 +1800,11 @@ function ChatScreen({
           </div>
         ) : null}
 
-        <label className="composer-input-wrap" htmlFor="messageInput">
+        <label
+          className="composer-input-wrap"
+          htmlFor="messageInput"
+          onPointerDown={onComposerPointerDown}
+        >
           <textarea
             id="messageInput"
             ref={textareaRef}
@@ -1843,142 +1884,18 @@ export default function App() {
   const [modeMenuOpen, setModeMenuOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("nest");
   const messageListRef = useRef(null);
+  const messageEndRef = useRef(null);
   const textareaRef = useRef(null);
   const imageInputRef = useRef(null);
   const composerRef = useRef(null);
-
-  useEffect(() => {
-    const node = textareaRef.current;
-    if (!node) {
-      return;
-    }
-
-    node.style.height = "0px";
-    node.style.height = `${Math.min(node.scrollHeight, 160)}px`;
-  }, [input]);
-
-  useEffect(() => {
-    const node = messageListRef.current;
-    if (!node) {
-      return;
-    }
-
-    node.scrollTop = node.scrollHeight;
-  }, [messages, activeTab]);
-
-  useEffect(() => {
-    const root = document.documentElement;
-    const composerNode = composerRef.current;
-    if (!composerNode) {
-      return;
-    }
-
-    function syncComposerHeight() {
-      root.style.setProperty("--composer-height", `${Math.round(composerNode.offsetHeight)}px`);
-    }
-
-    syncComposerHeight();
-
-    const resizeObserver =
-      typeof ResizeObserver !== "undefined" ? new ResizeObserver(syncComposerHeight) : null;
-    resizeObserver?.observe(composerNode);
-    window.addEventListener("resize", syncComposerHeight);
-    window.visualViewport?.addEventListener("resize", syncComposerHeight);
-
-    return () => {
-      resizeObserver?.disconnect();
-      window.removeEventListener("resize", syncComposerHeight);
-      window.visualViewport?.removeEventListener("resize", syncComposerHeight);
-      root.style.removeProperty("--composer-height");
-    };
-  }, [activeTab]);
-
-  useEffect(() => {
-    if ("serviceWorker" in navigator) {
-      window.addEventListener("load", registerServiceWorker, { once: true });
-    }
-
-    return () => {
-      window.removeEventListener("load", registerServiceWorker);
-    };
-  }, []);
-
-  useEffect(() => {
-    const root = document.documentElement;
-    const viewport = window.visualViewport;
-    let frameId = 0;
-    let settleTimeoutId = 0;
-    let maxViewportHeight = Math.max(window.innerHeight, viewport?.height || 0);
-
-    function syncViewportHeight() {
-      frameId = 0;
-      const innerHeight = window.innerHeight;
-      const viewportHeight = viewport?.height || innerHeight;
-      const viewportOffsetTop = viewport?.offsetTop || 0;
-      const visibleHeight = Math.round(viewportHeight + viewportOffsetTop);
-
-      maxViewportHeight = Math.max(maxViewportHeight, innerHeight, visibleHeight);
-
-      const keyboardInset = maxViewportHeight - visibleHeight;
-      const keyboardOpen = keyboardInset > 120;
-      const appHeight = keyboardOpen
-        ? visibleHeight
-        : Math.max(innerHeight, visibleHeight, maxViewportHeight);
-
-      root.style.setProperty("--app-height", `${Math.round(appHeight)}px`);
-      root.dataset.keyboardOpen = keyboardOpen ? "true" : "false";
-
-      if (window.scrollY > 0) {
-        window.scrollTo(0, 0);
-      }
-    }
-
-    function scheduleViewportSync() {
-      if (frameId) {
-        cancelAnimationFrame(frameId);
-      }
-
-      frameId = window.requestAnimationFrame(syncViewportHeight);
-    }
-
-    function settleViewport() {
-      scheduleViewportSync();
-      window.clearTimeout(settleTimeoutId);
-      settleTimeoutId = window.setTimeout(scheduleViewportSync, 320);
-    }
-
-    function resetViewportBounds() {
-      maxViewportHeight = Math.max(window.innerHeight, viewport?.height || 0);
-      settleViewport();
-    }
-
-    settleViewport();
-
-    window.addEventListener("resize", settleViewport);
-    window.addEventListener("orientationchange", resetViewportBounds);
-    window.addEventListener("focusin", settleViewport);
-    window.addEventListener("focusout", settleViewport);
-    window.addEventListener("pageshow", resetViewportBounds);
-    viewport?.addEventListener("resize", settleViewport);
-    viewport?.addEventListener("scroll", settleViewport);
-
-    return () => {
-      if (frameId) {
-        cancelAnimationFrame(frameId);
-      }
-
-      window.clearTimeout(settleTimeoutId);
-      window.removeEventListener("resize", settleViewport);
-      window.removeEventListener("orientationchange", resetViewportBounds);
-      window.removeEventListener("focusin", settleViewport);
-      window.removeEventListener("focusout", settleViewport);
-      window.removeEventListener("pageshow", resetViewportBounds);
-      viewport?.removeEventListener("resize", settleViewport);
-      viewport?.removeEventListener("scroll", settleViewport);
-      delete root.dataset.keyboardOpen;
-      root.style.removeProperty("--app-height");
-    };
-  }, []);
+  const { onComposerPointerDown } = useKeyboardCompat({
+    activeTab,
+    composerRef,
+    input,
+    messageListRef,
+    messages,
+    textareaRef
+  });
 
   useEffect(() => {
     if (!modeMenuOpen) {
@@ -1997,10 +1914,6 @@ export default function App() {
       window.removeEventListener("pointerdown", handlePointerDown);
     };
   }, [modeMenuOpen]);
-
-  function registerServiceWorker() {
-    navigator.serviceWorker.register("/sw.js").catch(() => {});
-  }
 
   function handleSaveSettings(nextSettings) {
     const saved = saveSettings(nextSettings);
@@ -2158,6 +2071,7 @@ export default function App() {
                 profileEditorOpen={profileEditorOpen}
                 modeMenuOpen={modeMenuOpen}
                 messageListRef={messageListRef}
+                messageEndRef={messageEndRef}
                 textareaRef={textareaRef}
                 imageInputRef={imageInputRef}
                 composerRef={composerRef}
@@ -2166,6 +2080,7 @@ export default function App() {
                 setSettingsOpen={setSettingsOpen}
                 setProfileEditorOpen={setProfileEditorOpen}
                 setModeMenuOpen={setModeMenuOpen}
+                onComposerPointerDown={onComposerPointerDown}
                 onBack={() => setActiveTab("nest")}
                 onSubmit={handleSubmit}
                 onSelectMode={handleSelectMode}
