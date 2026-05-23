@@ -1667,11 +1667,8 @@ function ChatScreen({
   input,
   pendingImage,
   isLoading,
-  settingsOpen,
-  profileEditorOpen,
   modeMenuOpen,
   messageListRef,
-  messageEndRef,
   textareaRef,
   imageInputRef,
   composerRef,
@@ -1685,7 +1682,7 @@ function ChatScreen({
   onSubmit,
   onSelectMode,
   onOpenSettings,
-  onHandleImageInputChange
+  onImageInputChange
 }) {
   function handleComposerKeyDown(event) {
     if (event.key === "Enter" && !event.shiftKey) {
@@ -1757,7 +1754,6 @@ function ChatScreen({
               onAssistantAvatarClick={openProfileEditor}
             />
           ))}
-          <div className="messages-end-anchor" ref={messageEndRef} aria-hidden="true"></div>
         </div>
       </section>
 
@@ -1783,7 +1779,7 @@ function ChatScreen({
           className="hidden-input"
           type="file"
           accept="image/*"
-          onChange={onHandleImageInputChange}
+          onChange={onImageInputChange}
         />
 
         {pendingImage ? (
@@ -1884,7 +1880,6 @@ export default function App() {
   const [modeMenuOpen, setModeMenuOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("nest");
   const messageListRef = useRef(null);
-  const messageEndRef = useRef(null);
   const textareaRef = useRef(null);
   const imageInputRef = useRef(null);
   const composerRef = useRef(null);
@@ -2067,11 +2062,8 @@ export default function App() {
                 input={input}
                 pendingImage={pendingImage}
                 isLoading={isLoading}
-                settingsOpen={settingsOpen}
-                profileEditorOpen={profileEditorOpen}
                 modeMenuOpen={modeMenuOpen}
                 messageListRef={messageListRef}
-                messageEndRef={messageEndRef}
                 textareaRef={textareaRef}
                 imageInputRef={imageInputRef}
                 composerRef={composerRef}
@@ -2085,7 +2077,7 @@ export default function App() {
                 onSubmit={handleSubmit}
                 onSelectMode={handleSelectMode}
                 onOpenSettings={handleOpenModelSettings}
-                onHandleImageInputChange={handleImageInputChange}
+                onImageInputChange={handleImageInputChange}
               />
             ) : (
               <NestPage

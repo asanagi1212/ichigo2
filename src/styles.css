@@ -4,6 +4,7 @@
   --foreground: #5a4f46;
   --card: #f9f6f3;
   --card-strong: #ffffff;
+  --composer-surface: #f9f6f3;
   --primary: #a89080;
   --primary-strong: #8f796a;
   --secondary: #d4c4b7;
@@ -15,6 +16,8 @@
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
   --app-height: 100dvh;
+  --viewport-bottom-gap: 0px;
+  --dock-sink: 8px;
   --composer-height: 0px;
   --viewport-offset-top: 0px;
   font-family: "Avenir Next", "SF Pro Text", "PingFang SC", "Segoe UI", sans-serif;
@@ -33,6 +36,7 @@ body,
   min-height: 100%;
   overflow: hidden;
   overscroll-behavior: none;
+  background: var(--composer-surface);
 }
 
 body {
@@ -82,14 +86,15 @@ textarea {
   top: var(--viewport-offset-top);
   left: 0;
   width: 100%;
-  height: var(--app-height);
-  min-height: var(--app-height);
+  height: calc(var(--app-height) + var(--viewport-bottom-gap));
+  min-height: calc(var(--app-height) + var(--viewport-bottom-gap));
   background: rgba(249, 246, 243, 0.96);
   overflow: hidden;
   padding: 0;
 }
 
 .phone-frame {
+  position: relative;
   height: 100%;
   min-height: 0;
   display: grid;
@@ -115,6 +120,9 @@ textarea {
   display: grid;
   grid-template-rows: auto 1fr;
   min-height: 0;
+  background:
+    radial-gradient(circle at top, rgba(212, 196, 183, 0.28), transparent 38%),
+    linear-gradient(180deg, rgba(247, 243, 238, 0.88) 0%, rgba(241, 235, 229, 0.92) 100%);
 }
 
 .chat-header {
@@ -230,11 +238,6 @@ textarea {
 
 .message-group {
   margin-top: 12px;
-}
-
-.messages-end-anchor {
-  width: 100%;
-  height: 1px;
 }
 
 .date-header-row {
@@ -372,7 +375,7 @@ textarea {
 .composer {
   position: absolute;
   right: 0;
-  bottom: 0;
+  bottom: calc(0px - var(--dock-sink));
   left: 0;
   z-index: 5;
   display: flex;
@@ -381,12 +384,18 @@ textarea {
   padding:
     12px
     calc(16px + var(--safe-right))
-    calc(6px + var(--safe-bottom))
+    10px
     calc(16px + var(--safe-left));
-  border-top: 1px solid rgba(217, 206, 195, 0.7);
-  background: #f9f6f3;
-  backdrop-filter: blur(20px);
+  border-top: 1px solid rgba(217, 206, 195, 0.65);
+  background: var(--composer-surface);
   transform: translateZ(0);
+}
+
+.composer > .composer-icon,
+.composer > .composer-input-wrap,
+.composer > .mode-trigger,
+.composer > .send-button {
+  margin-bottom: 0;
 }
 
 .composer-icon {
@@ -1107,62 +1116,70 @@ textarea {
 }
 
 .bottom-nav {
-  padding: 6px 12px calc(8px + var(--safe-bottom));
-  background: linear-gradient(180deg, rgba(245, 240, 235, 0) 0%, rgba(245, 240, 235, 0.72) 45%, rgba(245, 240, 235, 0.92) 100%);
+  display: grid;
+  justify-items: center;
+  padding:
+    8px
+    calc(20px + var(--safe-right))
+    calc(10px + var(--safe-bottom))
+    calc(20px + var(--safe-left));
+  background: transparent;
 }
 
 .bottom-nav-inner {
   display: flex;
-  gap: 4px;
-  padding: 6px 8px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.92);
-  border: 1px solid rgba(228, 220, 211, 0.96);
+  width: min(100%, 430px);
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 26px;
+  background: rgba(255, 255, 255, 0.98);
+  border: 1.5px solid rgba(155, 146, 137, 0.62);
   box-shadow:
-    0 20px 34px rgba(121, 104, 92, 0.08),
-    0 6px 14px rgba(121, 104, 92, 0.06),
-    inset 0 1px 0 rgba(255, 255, 255, 0.88);
-  backdrop-filter: blur(28px);
+    0 8px 18px rgba(121, 104, 92, 0.07),
+    0 2px 5px rgba(121, 104, 92, 0.04);
 }
 
 .bottom-nav-item {
   flex: 1;
-  min-height: 58px;
+  min-width: 0;
+  min-height: 60px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  border-radius: 999px;
+  gap: 6px;
+  border-radius: 18px;
   background: transparent;
-  color: #a79c92;
+  color: #9b9289;
 }
 
 .bottom-nav-item.active {
-  color: #8f7b6d;
+  color: #6f655d;
+  background: rgba(246, 242, 237, 0.9);
 }
 
 .bottom-nav-icon {
-  width: 44px;
-  height: 26px;
-  border-radius: 999px;
+  width: 36px;
+  height: 24px;
+  border-radius: 12px;
   display: grid;
   place-items: center;
   background: transparent;
 }
 
 .bottom-nav-item.active .bottom-nav-icon {
-  background: linear-gradient(180deg, rgba(162, 137, 120, 0.18) 0%, rgba(162, 137, 120, 0.1) 100%);
+  background: transparent;
+  box-shadow: none;
 }
 
 .bottom-nav-label {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.01em;
 }
 
 .bottom-nav-item:hover {
-  background: rgba(168, 144, 128, 0.06);
+  background: rgba(168, 144, 128, 0.04);
 }
 
 .bottom-nav-item.active:hover {

@@ -183,6 +183,7 @@ export function useKeyboardCompat({
     let maxViewportHeight = Math.max(window.innerHeight, viewport?.height || 0);
     let lastAppHeight = -1;
     let lastViewportOffsetTop = -1;
+    let lastViewportBottomGap = -1;
     let lastKeyboardOpen = null;
 
     function syncViewportHeight() {
@@ -196,6 +197,8 @@ export function useKeyboardCompat({
       const keyboardOpen = keyboardInset > 120;
       const nextAppHeight = Math.round(viewportHeight);
       const nextViewportOffsetTop = keyboardOpen ? viewportOffsetTop : 0;
+      const rawViewportBottomGap = Math.max(0, Math.round(innerHeight - viewportHeight - viewportOffsetTop));
+      const nextViewportBottomGap = keyboardOpen ? 0 : rawViewportBottomGap;
 
       if (nextAppHeight !== lastAppHeight) {
         root.style.setProperty("--app-height", `${nextAppHeight}px`);
@@ -205,6 +208,11 @@ export function useKeyboardCompat({
       if (nextViewportOffsetTop !== lastViewportOffsetTop) {
         root.style.setProperty("--viewport-offset-top", `${nextViewportOffsetTop}px`);
         lastViewportOffsetTop = nextViewportOffsetTop;
+      }
+
+      if (nextViewportBottomGap !== lastViewportBottomGap) {
+        root.style.setProperty("--viewport-bottom-gap", `${nextViewportBottomGap}px`);
+        lastViewportBottomGap = nextViewportBottomGap;
       }
 
       if (keyboardOpen !== lastKeyboardOpen) {
@@ -241,6 +249,7 @@ export function useKeyboardCompat({
       delete root.dataset.keyboardOpen;
       root.style.removeProperty("--app-height");
       root.style.removeProperty("--viewport-offset-top");
+      root.style.removeProperty("--viewport-bottom-gap");
     };
   }, []);
 
