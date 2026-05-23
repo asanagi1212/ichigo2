@@ -1796,33 +1796,35 @@ function ChatScreen({
           </div>
         ) : null}
 
-        <label
-          className="composer-input-wrap"
-          htmlFor="messageInput"
-          onPointerDown={onComposerPointerDown}
-        >
-          <textarea
-            id="messageInput"
-            ref={textareaRef}
-            value={input}
-            onChange={(event) => setInput(event.target.value)}
-            onKeyDown={handleComposerKeyDown}
-            rows="1"
-            maxLength="4000"
-            placeholder="发送消息..."
-          />
-        </label>
+        <div className="composer-pill">
+          <label
+            className="composer-input-wrap"
+            htmlFor="messageInput"
+            onPointerDown={onComposerPointerDown}
+          >
+            <textarea
+              id="messageInput"
+              ref={textareaRef}
+              value={input}
+              onChange={(event) => setInput(event.target.value)}
+              onKeyDown={handleComposerKeyDown}
+              rows="1"
+              maxLength="4000"
+              placeholder="⊹ ♡┈┈ 𓏴 𝒫𝒾𝓃𝓀 𝒱𝑒𝓁𝓋𝑒𝓉 𓏴 ┈┈♡ ⊹"
+            />
+          </label>
 
-        <button
-          className="mode-trigger"
-          type="button"
-          aria-label="切换模式"
-          aria-haspopup="menu"
-          aria-expanded={modeMenuOpen}
-          onClick={() => setModeMenuOpen((open) => !open)}
-        >
-          <BoltIcon />
-        </button>
+          <button
+            className="mode-trigger"
+            type="button"
+            aria-label="切换模式"
+            aria-haspopup="menu"
+            aria-expanded={modeMenuOpen}
+            onClick={() => setModeMenuOpen((open) => !open)}
+          >
+            <BoltIcon />
+          </button>
+        </div>
 
         <button
           className="send-button"
@@ -2052,8 +2054,8 @@ export default function App() {
 
   return (
     <>
-      <div className="app-shell">
-        <main className="phone-frame">
+      <div className={`app-shell app-shell-${activeTab}`}>
+        <main className={`phone-frame phone-frame-${activeTab}`}>
           <div className="tab-screen">
             {activeTab === "chat" ? (
               <ChatScreen
