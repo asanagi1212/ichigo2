@@ -43,6 +43,10 @@ const defaults = {
   nestRightName: "小窝",
   nestRightAvatar: "窝",
   nestRightAvatarImage: "",
+  statusAvatar: "早",
+  statusAvatarImage: "",
+  statusLittleUpdate: "little updates",
+  statusSignature: "把喜欢、心情和每天的小碎片，慢慢留在这里。",
   nestStartDate: "2022-09-03",
   nestChecklist: defaultChecklist
 };
