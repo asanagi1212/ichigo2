@@ -16,7 +16,8 @@ function formatConversation(messages) {
 
 async function mockReply(messages, appContext = {}) {
   const latestUserMessage = [...messages].reverse().find((item) => item.role === "user");
-  const seed = latestUserMessage?.content?.trim() || (latestUserMessage?.imageDataUrl ? "你上传了一张图片" : "你好");
+  const seed =
+    latestUserMessage?.content?.trim() || (latestUserMessage?.imageDataUrl ? "你上传了一张图片" : "你好");
   const actions = {};
   const firstPlant = Array.isArray(appContext.plants) ? appContext.plants[0] : null;
 
@@ -44,12 +45,15 @@ async function mockReply(messages, appContext = {}) {
   }
 
   const summary = [];
+
   if (actions.dailyNote) {
     summary.push("我帮你写好了今日小纸条。");
   }
+
   if (actions.waterPlant) {
     summary.push(`我顺手给${actions.waterPlant.name}浇了水。`);
   }
+
   if (actions.createStatus) {
     summary.push("我也替你发了一条新的状态。");
   }
@@ -90,7 +94,8 @@ async function proxyReply(messages, settings, appContext = {}) {
 
   return {
     content: data.content || "接口已返回，但没有解析到可显示的文本。",
-    actions: data.actions || null
+    actions: data.actions || null,
+    settings: data.settings || null
   };
 }
 

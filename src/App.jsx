@@ -1,6 +1,7 @@
 ﻿import { useEffect, useRef, useState } from "react";
+import { fetchAppState, persistAppState } from "./app-state-client.js";
 import { getAssistantReply } from "./chat-client.js";
-import { loadSettings, saveSettings } from "./storage.js";
+import { loadSettings, mergeServerSettings, saveSettings } from "./storage.js";
 import { useKeyboardCompat } from "./useKeyboardCompat.js";
 
 function createId() {
@@ -51,6 +52,10 @@ const nestPlantSuggestions = [
 
 function getStatusMoodAccent(moodValue) {
   return statusMoodOptions.find((mood) => mood.value === moodValue)?.accent || "glow";
+}
+
+function looksCorruptedText(value) {
+  return typeof value === "string" && /\?{2,}|�|`n/.test(value);
 }
 
 function createPastTimestamp(hoursAgo) {
@@ -148,21 +153,39 @@ function normalizeStatusPosts(posts) {
     return getDefaultStatusPosts();
   }
 
+  const fallbackPostsById = new Map(
+    getDefaultStatusPosts().map((post) => [post.id, post])
+  );
+
   const nextPosts = posts
     .map((post, index) => {
       if (!post || typeof post !== "object") {
         return null;
       }
 
-      const fallbackMood = statusMoodOptions[index % statusMoodOptions.length]?.value || "晴朗";
+      const fallbackPost = fallbackPostsById.get(post.id) || null;
+      const fallbackMood =
+        fallbackPost?.mood || statusMoodOptions[index % statusMoodOptions.length]?.value || "晴朗";
       const commentsList = normalizeStatusComments(post.commentsList);
+      const content =
+        looksCorruptedText(post.content) && fallbackPost?.content
+          ? fallbackPost.content
+          : typeof post.content === "string"
+            ? post.content
+            : "";
+      const mood =
+        looksCorruptedText(post.mood) && fallbackPost?.mood
+          ? fallbackPost.mood
+          : typeof post.mood === "string" && post.mood.trim()
+            ? post.mood.trim()
+            : fallbackMood;
 
       return {
         id: post.id || `status-${index + 1}`,
         author: post.author === "right" ? "right" : "left",
         own: typeof post.own === "boolean" ? post.own : post.author === "right",
-        mood: typeof post.mood === "string" && post.mood.trim() ? post.mood.trim() : fallbackMood,
-        content: typeof post.content === "string" ? post.content : "",
+        mood,
+        content,
         imageDataUrl: typeof post.imageDataUrl === "string" ? post.imageDataUrl : "",
         imageName: typeof post.imageName === "string" ? post.imageName : "",
         timestamp: typeof post.timestamp === "string" ? post.timestamp : new Date().toISOString(),
@@ -506,7 +529,7 @@ function ProfileQuickEditor({ open, settings, onClose, onSave }) {
           />
           <div>
             <p className="session-label">即时预览</p>
-            <h3 className="profile-name">{draft.contactName || "联系人助手"}</h3>
+            <h3 className="profile-name">{draft.contactName || "阿橘"}</h3>
           </div>
         </div>
 
@@ -519,7 +542,7 @@ function ProfileQuickEditor({ open, settings, onClose, onSave }) {
               maxLength="20"
               value={draft.contactName || ""}
               onChange={handleFieldChange}
-              placeholder="联系人助手"
+              placeholder="阿橘"
             />
           </label>
 
@@ -718,7 +741,7 @@ function NestHeroEditor({ open, settings, onClose, onSave }) {
                 {draft.nestRightAvatarImage ? (
                   <img className="avatar-image" src={draft.nestRightAvatarImage} alt="右侧头像预览" />
                 ) : (
-                  <span>{draft.nestRightAvatar || "B"}</span>
+                  <span>{draft.nestRightAvatar || "早"}</span>
                 )}
               </div>
               <div>
@@ -744,12 +767,12 @@ function NestHeroEditor({ open, settings, onClose, onSave }) {
               <input
                 name="nestRightAvatar"
                 type="text"
-                maxLength="2"
-                value={draft.nestRightAvatar || ""}
-                onChange={handleFieldChange}
-                placeholder="B"
-              />
-            </label>
+              maxLength="2"
+              value={draft.nestRightAvatar || ""}
+              onChange={handleFieldChange}
+              placeholder="早"
+            />
+          </label>
 
             <input
               ref={rightFileInputRef}
@@ -1018,7 +1041,7 @@ function MessageGroup({ message, previousMessage, onAssistantAvatarClick }) {
 
           <p className="message-date">{formatDateHeader(message.timestamp)}</p>
 
-          {message.role === "user" ? <Avatar text="我" /> : null}
+          {message.role === "user" ? <Avatar text={message.avatar || "我"} image={message.avatarImage} /> : null}
         </div>
       ) : null}
 
@@ -1368,24 +1391,100 @@ function formatStatusTime(timestamp) {
 }
 
 function getStatusProfile(settings) {
+  const userIdentity = getUserIdentity(settings);
   return {
-    name: "早",
+    name: userIdentity.name,
     handle: "asa",
-    avatar: settings.statusAvatar || "早",
-    image: settings.statusAvatarImage || "",
+    avatar: userIdentity.avatar,
+    image: userIdentity.image,
     note: settings.statusLittleUpdate || "little updates",
     bio: settings.statusSignature || "把喜欢、心情和每天的小碎片，慢慢留在这里。"
   };
 }
 
-function getStatusAuthor(settings) {
+function getUserIdentity(settings) {
+  return {
+    name: settings.nestRightName || "小窝",
+    avatar: settings.statusAvatar || settings.nestRightAvatar || "早",
+    image: settings.statusAvatarImage || settings.nestRightAvatarImage || ""
+  };
+}
+
+function getAssistantIdentity(settings) {
+  return {
+    name: settings.nestLeftName || settings.contactName || "阿橘",
+    avatar: settings.nestLeftAvatar || settings.contactAvatar || "阿",
+    image: settings.nestLeftAvatarImage || settings.contactAvatarImage || ""
+  };
+}
+
+function syncAssistantIdentitySettings(nextSettings, source = "nest") {
+  const fallbackIdentity = getAssistantIdentity(nextSettings);
+  const primaryName = source === "contact" ? nextSettings.contactName : nextSettings.nestLeftName;
+  const primaryAvatar = source === "contact" ? nextSettings.contactAvatar : nextSettings.nestLeftAvatar;
+  const primaryImage = source === "contact" ? nextSettings.contactAvatarImage : nextSettings.nestLeftAvatarImage;
+  const name = primaryName || fallbackIdentity.name;
+  const avatar = primaryAvatar || fallbackIdentity.avatar;
+  const image = primaryImage || fallbackIdentity.image;
+
+  return {
+    ...nextSettings,
+    contactName: name,
+    nestLeftName: name,
+    contactAvatar: avatar,
+    nestLeftAvatar: avatar,
+    contactAvatarImage: image,
+    nestLeftAvatarImage: image
+  };
+}
+
+function syncUserIdentitySettings(nextSettings, source = "status") {
+  const fallbackIdentity = getUserIdentity(nextSettings);
+  const primaryAvatar = source === "nest" ? nextSettings.nestRightAvatar : nextSettings.statusAvatar;
+  const primaryImage = source === "nest" ? nextSettings.nestRightAvatarImage : nextSettings.statusAvatarImage;
+  const name = nextSettings.nestRightName || fallbackIdentity.name;
+  const avatar = primaryAvatar || fallbackIdentity.avatar;
+  const image = primaryImage || fallbackIdentity.image;
+
+  return {
+    ...nextSettings,
+    nestRightName: name,
+    nestRightAvatar: avatar,
+    nestRightAvatarImage: image,
+    statusAvatar: avatar,
+    statusAvatarImage: image
+  };
+}
+
+function getAssistantStatusProfile(settings) {
+  const assistantIdentity = getAssistantIdentity(settings);
+  return {
+    name: assistantIdentity.name,
+    handle: "ai",
+    avatar: assistantIdentity.avatar,
+    image: assistantIdentity.image,
+    note: "assistant updates",
+    bio: "把想说的话和惦记，悄悄留在这里。"
+  };
+}
+
+function getStatusAuthor(settings, post) {
+  if (post?.author === "left" || post?.own === false) {
+    return getAssistantStatusProfile(settings);
+  }
+
   return getStatusProfile(settings);
 }
 
 function getNestDailyCard(settings) {
+  const note =
+    typeof settings.nestDailyNote === "string"
+      ? settings.nestDailyNote.replace(/`n/g, "\n")
+      : "";
+
   return {
     content:
-      settings.nestDailyNote ||
+      note ||
       "今天也要好好吃饭、慢慢休息。\n忙的时候记得回来看看这里，我们把喜欢的日常一点点存起来。",
     signature: settings.nestDailySign || "来自你的小窝"
   };
@@ -1412,6 +1511,7 @@ function StatusProfileEditor({ open, settings, onClose, onSave }) {
   const dialogRef = useRef(null);
   const fileInputRef = useRef(null);
   const [draft, setDraft] = useState(settings);
+  const userIdentity = getUserIdentity(draft);
 
   useEffect(() => {
     setDraft(settings);
@@ -1494,19 +1594,31 @@ function StatusProfileEditor({ open, settings, onClose, onSave }) {
 
         <div className="profile-preview">
           <Avatar
-            text={draft.statusAvatar || "早"}
-            image={draft.statusAvatarImage}
+            text={userIdentity.avatar}
+            image={userIdentity.image}
             className="profile-avatar profile-avatar-large"
             label="状态页头像预览"
           />
           <div>
             <p className="session-label">状态主页</p>
-            <h3 className="profile-name">早</h3>
+            <h3 className="profile-name">{userIdentity.name}</h3>
             <p className="status-editor-handle">@asa</p>
           </div>
         </div>
 
         <div className="profile-fields">
+          <label>
+            名字
+            <input
+              name="nestRightName"
+              type="text"
+              maxLength="12"
+              value={draft.nestRightName || ""}
+              onChange={handleFieldChange}
+              placeholder="小窝"
+            />
+          </label>
+
           <label>
             头像文字
             <input
@@ -1777,17 +1889,19 @@ function NestPage({ settings, onSaveHeroSettings, onSaveChecklist, onSavePlants 
   const checklist = settings.nestChecklist || [];
   const plants = settings.nestPlants || [];
   const dailyCard = getNestDailyCard(settings);
+  const assistantIdentity = getAssistantIdentity(settings);
+  const userIdentity = getUserIdentity(settings);
   const nestPageRef = useRef(null);
   const leftFileInputRef = useRef(null);
   const rightFileInputRef = useRef(null);
   const checklistClickTimerRef = useRef(null);
   const [heroDraft, setHeroDraft] = useState({
-    nestLeftName: settings.nestLeftName || "",
-    nestLeftAvatar: settings.nestLeftAvatar || "",
-    nestLeftAvatarImage: settings.nestLeftAvatarImage || "",
-    nestRightName: settings.nestRightName || "",
-    nestRightAvatar: settings.nestRightAvatar || "",
-    nestRightAvatarImage: settings.nestRightAvatarImage || "",
+    nestLeftName: assistantIdentity.name,
+    nestLeftAvatar: assistantIdentity.avatar,
+    nestLeftAvatarImage: assistantIdentity.image,
+    nestRightName: userIdentity.name,
+    nestRightAvatar: userIdentity.avatar,
+    nestRightAvatarImage: userIdentity.image,
     nestStartDate: settings.nestStartDate || ""
   });
   const [checklistDraft, setChecklistDraft] = useState(checklist);
@@ -1808,21 +1922,21 @@ function NestPage({ settings, onSaveHeroSettings, onSaveChecklist, onSavePlants 
 
   useEffect(() => {
     setHeroDraft({
-      nestLeftName: settings.nestLeftName || "",
-      nestLeftAvatar: settings.nestLeftAvatar || "",
-      nestLeftAvatarImage: settings.nestLeftAvatarImage || "",
-      nestRightName: settings.nestRightName || "",
-      nestRightAvatar: settings.nestRightAvatar || "",
-      nestRightAvatarImage: settings.nestRightAvatarImage || "",
+      nestLeftName: assistantIdentity.name,
+      nestLeftAvatar: assistantIdentity.avatar,
+      nestLeftAvatarImage: assistantIdentity.image,
+      nestRightName: userIdentity.name,
+      nestRightAvatar: userIdentity.avatar,
+      nestRightAvatarImage: userIdentity.image,
       nestStartDate: settings.nestStartDate || ""
     });
   }, [
-    settings.nestLeftName,
-    settings.nestLeftAvatar,
-    settings.nestLeftAvatarImage,
-    settings.nestRightName,
-    settings.nestRightAvatar,
-    settings.nestRightAvatarImage,
+    assistantIdentity.name,
+    assistantIdentity.avatar,
+    assistantIdentity.image,
+    userIdentity.name,
+    userIdentity.avatar,
+    userIdentity.image,
     settings.nestStartDate
   ]);
 
@@ -2238,7 +2352,7 @@ function NestPage({ settings, onSaveHeroSettings, onSaveChecklist, onSavePlants 
                 {previewHero.nestLeftAvatarImage ? (
                   <img className="avatar-image" src={previewHero.nestLeftAvatarImage} alt={previewHero.nestLeftName || "左侧头像"} />
                 ) : (
-                  <span>{previewHero.nestLeftAvatar || "A"}</span>
+                  <span>{previewHero.nestLeftAvatar || "阿"}</span>
                 )}
               </div>
             </button>
@@ -2264,7 +2378,7 @@ function NestPage({ settings, onSaveHeroSettings, onSaveChecklist, onSavePlants 
               </div>
             ) : (
               <button className="plain-inline-trigger" type="button" onClick={() => setActiveHeroEditor("left")}>
-                {settings.nestLeftName || "阿杉"}
+                {assistantIdentity.name}
               </button>
             )}
           </div>
@@ -2275,13 +2389,13 @@ function NestPage({ settings, onSaveHeroSettings, onSaveChecklist, onSavePlants 
 
           <div className="nest-avatar-stack">
             <button className="nest-avatar-button" type="button" onClick={() => handleChooseHeroImage("right")}>
-              <div className="nest-mini-avatar alt">
-                {previewHero.nestRightAvatarImage ? (
-                  <img className="avatar-image" src={previewHero.nestRightAvatarImage} alt={previewHero.nestRightName || "右侧头像"} />
-                ) : (
-                  <span>{previewHero.nestRightAvatar || "B"}</span>
-                )}
-              </div>
+            <div className="nest-mini-avatar alt">
+              {previewHero.nestRightAvatarImage ? (
+                <img className="avatar-image" src={previewHero.nestRightAvatarImage} alt={previewHero.nestRightName || "右侧头像"} />
+              ) : (
+                  <span>{previewHero.nestRightAvatar || userIdentity.avatar}</span>
+              )}
+            </div>
             </button>
 
             {activeHeroEditor === "right" ? (
@@ -2305,7 +2419,7 @@ function NestPage({ settings, onSaveHeroSettings, onSaveChecklist, onSavePlants 
               </div>
             ) : (
               <button className="plain-inline-trigger" type="button" onClick={() => setActiveHeroEditor("right")}>
-                {settings.nestRightName || "小窝"}
+                {userIdentity.name}
               </button>
             )}
           </div>
@@ -2623,6 +2737,7 @@ function StatusPage({ settings, onSaveStatusPosts, onSaveStatusProfile }) {
   const [expandedComments, setExpandedComments] = useState({});
   const [commentDrafts, setCommentDrafts] = useState({});
   const statusProfile = getStatusProfile(settings);
+  const assistantStatusProfile = getAssistantStatusProfile(settings);
   const totalLikes = posts.reduce((sum, post) => sum + post.likes, 0);
 
   useEffect(() => {
@@ -2729,8 +2844,8 @@ function StatusPage({ settings, onSaveStatusPosts, onSaveStatusProfile }) {
         ...post.commentsList,
         {
           id: createId(),
-          authorName: "我",
-          authorHandle: "me",
+          authorName: statusProfile.name,
+          authorHandle: statusProfile.handle,
           content,
           timestamp: new Date().toISOString(),
           own: true
@@ -2835,7 +2950,7 @@ function StatusPage({ settings, onSaveStatusPosts, onSaveStatusProfile }) {
 
         <section className="status-feed" aria-label="状态贴文列表">
           {posts.map((post) => {
-            const author = getStatusAuthor(settings);
+            const author = getStatusAuthor(settings, post);
             const deletable = Boolean(post.own);
             const commentsOpen = Boolean(expandedComments[post.id]);
 
@@ -2911,7 +3026,7 @@ function StatusPage({ settings, onSaveStatusPosts, onSaveStatusProfile }) {
                         post.commentsList.map((comment) => (
                           <article key={comment.id} className="status-comment-item">
                             <div className={`status-comment-avatar ${comment.own ? "own" : ""}`}>
-                              {comment.own ? "我" : "早"}
+                              {comment.own ? statusProfile.avatar : assistantStatusProfile.avatar}
                             </div>
                             <div className="status-comment-body">
                               <div className="status-comment-head">
@@ -3048,6 +3163,9 @@ function ChatScreen({
     setProfileEditorOpen(true);
   }
 
+  const assistantIdentity = getAssistantIdentity(settings);
+  const userIdentity = getUserIdentity(settings);
+
   return (
     <div className="chat-screen">
       <header className="chat-header">
@@ -3057,8 +3175,8 @@ function ChatScreen({
 
         <div className="chat-title-wrap">
           <Avatar
-            text={settings.contactAvatar || "AI"}
-            image={settings.contactAvatarImage}
+            text={assistantIdentity.avatar}
+            image={assistantIdentity.image}
             clickable
             onClick={openProfileEditor}
             className="header-avatar"
@@ -3072,7 +3190,7 @@ function ChatScreen({
             aria-label="编辑备注和头像"
           >
             <p className="chat-subtitle">Chat</p>
-            <h1>{settings.contactName || "联系人助手"}</h1>
+            <h1>{assistantIdentity.name}</h1>
           </button>
         </div>
 
@@ -3088,8 +3206,8 @@ function ChatScreen({
               key={message.id}
               message={{
                 ...message,
-                avatar: message.role === "assistant" ? settings.contactAvatar || "AI" : "我",
-                avatarImage: message.role === "assistant" ? settings.contactAvatarImage : ""
+                avatar: message.role === "assistant" ? assistantIdentity.avatar : userIdentity.avatar,
+                avatarImage: message.role === "assistant" ? assistantIdentity.image : userIdentity.image
               }}
               previousMessage={messages[index - 1]}
               onAssistantAvatarClick={openProfileEditor}
@@ -3242,6 +3360,27 @@ export default function App() {
   }, [settings]);
 
   useEffect(() => {
+    let cancelled = false;
+
+    fetchAppState(settingsRef.current)
+      .then(({ settings: remoteSettings }) => {
+        if (cancelled) {
+          return;
+        }
+
+        settingsRef.current = remoteSettings;
+        setSettings(remoteSettings);
+      })
+      .catch((error) => {
+        console.warn("Failed to hydrate app state from the server.", error);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
     if (!modeMenuOpen) {
       return;
     }
@@ -3259,40 +3398,56 @@ export default function App() {
     };
   }, [modeMenuOpen]);
 
-  function handleSaveSettings(nextSettings) {
+  function syncAppState(nextSettings) {
+    persistAppState(nextSettings)
+      .then((remoteSettings) => {
+        settingsRef.current = remoteSettings;
+        setSettings(remoteSettings);
+      })
+      .catch((error) => {
+        console.warn("Failed to sync app state to the server.", error);
+      });
+  }
+
+  function commitSettings(nextSettings, { closeSettings = false } = {}) {
     const saved = saveSettings(nextSettings);
+    settingsRef.current = saved;
     setSettings(saved);
-    setSettingsOpen(false);
+
+    if (closeSettings) {
+      setSettingsOpen(false);
+    }
+
+    syncAppState(saved);
+    return saved;
+  }
+
+  function handleSaveSettings(nextSettings) {
+    commitSettings(nextSettings, { closeSettings: true });
   }
 
   function handleProfileUpdate(nextSettings) {
-    const saved = saveSettings(nextSettings);
-    setSettings(saved);
+    commitSettings(syncAssistantIdentitySettings(nextSettings, "contact"));
   }
 
   function handleNestHeroUpdate(nextSettings) {
-    const saved = saveSettings(nextSettings);
-    setSettings(saved);
+    commitSettings(syncUserIdentitySettings(syncAssistantIdentitySettings(nextSettings, "nest"), "nest"));
   }
 
   function handleChecklistUpdate(nextChecklist) {
-    const saved = saveSettings({ ...settings, nestChecklist: nextChecklist });
-    setSettings(saved);
+    commitSettings({ ...settingsRef.current, nestChecklist: nextChecklist });
   }
 
   function handleNestPlantsUpdate(nextPlants) {
-    const saved = saveSettings({ ...settings, nestPlants: nextPlants });
-    setSettings(saved);
+    commitSettings({ ...settingsRef.current, nestPlants: nextPlants });
   }
 
   function handleStatusPostsUpdate(nextPosts) {
-    const saved = saveSettings({ ...settings, statusPosts: nextPosts });
-    setSettings(saved);
+    commitSettings({ ...settingsRef.current, statusPosts: nextPosts });
   }
 
   function handleStatusProfileUpdate(nextSettings) {
-    const saved = saveSettings(nextSettings);
-    setSettings(saved);
+    commitSettings(syncUserIdentitySettings(nextSettings, "status"));
   }
 
   function buildAssistantAppContext(currentSettings) {
@@ -3307,6 +3462,7 @@ export default function App() {
         days: plant.days
       })),
       statusProfile: getStatusProfile(currentSettings),
+      assistantStatusProfile: getAssistantStatusProfile(currentSettings),
       allowedStatusMoods: statusMoodOptions.map((mood) => mood.value)
     };
   }
@@ -3390,7 +3546,8 @@ export default function App() {
         const nextPosts = [
           createStatusPost({
             content: nextContent,
-            mood: nextMood
+            mood: nextMood,
+            own: false
           }),
           ...normalizeStatusPosts(nextSettings.statusPosts)
         ];
@@ -3404,13 +3561,14 @@ export default function App() {
     }
 
     if (hasUpdates) {
+      settingsRef.current = nextSettings;
       setSettings(nextSettings);
+      syncAppState(nextSettings);
     }
   }
 
   function handleSelectMode(mode) {
-    const saved = saveSettings({ ...settings, mode });
-    setSettings(saved);
+    commitSettings({ ...settingsRef.current, mode });
     setModeMenuOpen(false);
   }
 
@@ -3500,8 +3658,14 @@ export default function App() {
       const replyContent =
         typeof reply === "string" ? reply : reply?.content || "我已经帮你处理好了。";
       const replyActions = typeof reply === "string" ? null : reply?.actions || null;
+      const replySettings = typeof reply === "string" ? null : reply?.settings || null;
 
-      if (replyActions) {
+      if (replySettings) {
+        const mergedSettings = mergeServerSettings(settingsRef.current, replySettings);
+        const savedSettings = saveSettings(mergedSettings);
+        settingsRef.current = savedSettings;
+        setSettings(savedSettings);
+      } else if (replyActions) {
         applyAssistantActions(replyActions);
       }
 

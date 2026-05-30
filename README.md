@@ -7,6 +7,7 @@ An iOS-oriented React + Vite PWA chat frontend with a local backend proxy for Op
 - Mobile-first chat UI for iOS PWA usage
 - Mock mode for UI testing without API usage
 - OpenAI-compatible backend proxy at `/api/chat`
+- Supabase-backed app state persistence for the nest, daily note, status feed, and memories
 - Image attachment preview before sending
 - Local settings persistence
 - Safe API key handling through `.env`
@@ -18,9 +19,11 @@ An iOS-oriented React + Vite PWA chat frontend with a local backend proxy for Op
 - `src/main.jsx`: React entry
 - `src/App.jsx`: Chat UI, settings dialogs, composer, image attachment flow
 - `src/chat-client.js`: Frontend chat client
-- `src/storage.js`: Local settings persistence
+- `src/storage.js`: Local cache and shared state sanitizers
+- `src/app-state-client.js`: Frontend sync client for persisted app state
 - `src/styles.css`: Main app styles
-- `server.js`: Backend proxy for model requests
+- `server.js`: Backend proxy plus Supabase-backed persistence APIs
+- `supabase/schema.sql`: Database schema for app state, status posts, and memories
 - `public/`: PWA manifest, service worker, and icons
 - `start-dev.bat`: Starts backend proxy and Vite dev server on Windows
 - `start-api.bat`: Starts only the backend proxy
@@ -48,9 +51,28 @@ OPENAI_CHAT_PATH=/v1/chat/completions
 OPENAI_MODEL=gpt-4o-mini
 SYSTEM_PROMPT=You are a concise and reliable assistant.
 HTTPS_PROXY=http://127.0.0.1:7897
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SECRET_KEY=your_supabase_secret_key
+APP_STATE_USER_ID=default
 ```
 
 If you do not need a local proxy, remove `HTTPS_PROXY`.
+
+### Supabase setup
+
+1. Create a Supabase project.
+2. Open the SQL editor and run [`supabase/schema.sql`](/D:/ichigo--main/supabase/schema.sql).
+3. Copy your project URL into `SUPABASE_URL`.
+4. Copy a server-side secret key into `SUPABASE_SECRET_KEY`.
+5. Keep `APP_STATE_USER_ID=default` for a single-user prototype, or change it later when you add accounts.
+
+Once configured, the backend will persist:
+
+- 小窝里的今日小纸条、植物、清单和资料卡
+- 状态页发帖数据
+- 记忆条目 `memories`
+
+The frontend still keeps a local cache so the UI can open even if the server state has not loaded yet.
 
 ## Development
 
@@ -92,6 +114,7 @@ The server will:
 
 - serve the built PWA from `dist/`
 - expose the chat proxy at `/api/chat`
+- expose persisted state APIs at `/api/app-state`, `/api/memories`, and `/api/actions/apply`
 - keep the frontend and API on the same origin, which is ideal for mobile PWA deployment
 
 Deployment notes:
