@@ -122,7 +122,49 @@ function buildMessageContent(message) {
   return parts;
 }
 
-function buildChatPayload({ messages = [], settings = {} }) {
+function buildAppActionPrompt(appContext = {}) {
+  const plants = Array.isArray(appContext.plants) ? appContext.plants : [];
+  const moods = Array.isArray(appContext.allowedStatusMoods) ? appContext.allowedStatusMoods : [];
+  const dailyNote = appContext.dailyNote || {};
+  const statusProfile = appContext.statusProfile || {};
+
+  const contextLines = [
+    "你在一个陪伴感应用里，不止能聊天，也可以顺手帮用户更新页面内容。",
+    "如果你需要触发页面动作，请在回复最后追加一段且只追加一段：",
+    "<pulse-actions>{JSON}</pulse-actions>",
+    "JSON 可包含以下键：",
+    '1. "dailyNote": {"content":"新的小纸条内容","signature":"落款"}',
+    '2. "waterPlant": {"id":"植物id"} 或 {"name":"植物名字"}',
+    '3. "createStatus": {"content":"状态内容","mood":"晴朗"}',
+    "可以同时组合多个键，不需要的键不要输出。",
+    "标签外仍然正常用中文和用户说话，不要解释标签本身。",
+    `可用状态 mood 只有：${moods.join("、") || "晴朗、想念、轻松、心动"}。`
+  ];
+
+  if (dailyNote.content) {
+    contextLines.push(`当前今日小纸条：${dailyNote.content}`);
+  }
+
+  if (dailyNote.signature) {
+    contextLines.push(`当前小纸条落款：${dailyNote.signature}`);
+  }
+
+  if (plants.length > 0) {
+    contextLines.push(
+      `当前植物：${plants
+        .map((plant) => `${plant.name}(id:${plant.id}, 水分:${Math.round(Number(plant.waterLevel || 0) * 100)}%)`)
+        .join("；")}`
+    );
+  }
+
+  if (statusProfile.name && statusProfile.handle) {
+    contextLines.push(`状态页发帖身份：${statusProfile.name} / @${statusProfile.handle}`);
+  }
+
+  return contextLines.join("\n");
+}
+
+function buildChatPayload({ messages = [], settings = {}, appContext = {} }) {
   const model = pickSetting(settings.model, process.env.OPENAI_MODEL);
   const systemPrompt = pickSetting(settings.systemPrompt, process.env.SYSTEM_PROMPT);
 
@@ -135,6 +177,11 @@ function buildChatPayload({ messages = [], settings = {} }) {
   if (systemPrompt) {
     apiMessages.push({ role: "system", content: systemPrompt });
   }
+
+  apiMessages.push({
+    role: "system",
+    content: buildAppActionPrompt(appContext)
+  });
 
   for (const message of messages) {
     if (message.pending || !["user", "assistant"].includes(message.role)) {
@@ -151,6 +198,32 @@ function buildChatPayload({ messages = [], settings = {} }) {
     model,
     messages: apiMessages
   };
+}
+
+function extractAssistantActions(text) {
+  if (typeof text !== "string") {
+    return { content: "", actions: null };
+  }
+
+  const match = text.match(/<pulse-actions>\s*([\s\S]*?)\s*<\/pulse-actions>/i);
+
+  if (!match) {
+    return { content: text.trim(), actions: null };
+  }
+
+  let actions = null;
+
+  try {
+    const parsed = JSON.parse(match[1]);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      actions = parsed;
+    }
+  } catch {
+    actions = null;
+  }
+
+  const content = text.replace(match[0], "").trim();
+  return { content, actions };
 }
 
 function normalizeReplyText(value) {
@@ -425,8 +498,11 @@ async function handleChat(request, response) {
       return;
     }
 
+    const parsedReply = extractAssistantActions(reply);
+
     sendJson(response, 200, {
-      content: reply,
+      content: parsedReply.content || "我已经帮你处理好了。",
+      actions: parsedReply.actions,
       raw: upstream.data
     });
   } catch (error) {

@@ -5,12 +5,12 @@ set "ROOT=%~dp0"
 cd /d "%ROOT%"
 
 set "PROJECT_NODE_HOME=%ROOT%tools\node-v22.15.1-win-x64"
-set "WORKSPACE_NODE_HOME=C:\Downloads\Documents\New project\tools\node-v22.15.1-win-x64"
+set "CODEX_NODE_HOME=%USERPROFILE%\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin"
 
 if exist "%PROJECT_NODE_HOME%\node.exe" (
   set "NODE_HOME=%PROJECT_NODE_HOME%"
-) else if exist "%WORKSPACE_NODE_HOME%\node.exe" (
-  set "NODE_HOME=%WORKSPACE_NODE_HOME%"
+) else if exist "%CODEX_NODE_HOME%\node.exe" (
+  set "NODE_HOME=%CODEX_NODE_HOME%"
 )
 
 if defined NODE_HOME (

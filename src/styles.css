@@ -858,6 +858,7 @@ textarea {
   font-size: 14px;
   line-height: 1.8;
   color: var(--foreground);
+  white-space: pre-line;
 }
 
 .daily-sign {
@@ -929,6 +930,178 @@ textarea {
 
 .checklist-card .card-header-row {
   margin-bottom: 8px;
+}
+
+.checklist-accordion-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 0;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  text-align: left;
+}
+
+.checklist-accordion-trigger .section-title-row {
+  margin-bottom: 0;
+}
+
+.checklist-accordion-icon {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(168, 144, 128, 0.1);
+  color: var(--primary-strong);
+  transition: transform 180ms ease, background-color 180ms ease;
+}
+
+.checklist-accordion-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.checklist-accordion-trigger.open .checklist-accordion-icon {
+  transform: rotate(180deg);
+  background: rgba(168, 144, 128, 0.16);
+}
+
+.checklist-accordion-trigger + .checklist-groups {
+  margin-top: 12px;
+}
+
+.plant-card {
+  padding-bottom: 14px;
+}
+
+.plant-card-head {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 10px;
+}
+
+.plant-accordion-trigger .section-title-row {
+  margin-bottom: 0;
+}
+
+.plant-add-button {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(168, 144, 128, 0.12);
+  color: var(--primary-strong);
+}
+
+.plant-add-button svg {
+  width: 16px;
+  height: 16px;
+}
+
+.plant-list {
+  display: grid;
+  gap: 12px;
+}
+
+.plant-item {
+  position: relative;
+  display: grid;
+  gap: 9px;
+  padding: 16px 14px 10px;
+  border-radius: 20px;
+  background: rgba(239, 229, 217, 0.78);
+  border: 1px solid rgba(217, 206, 195, 0.44);
+}
+
+.plant-item.delete-armed {
+  border-color: rgba(168, 144, 128, 0.72);
+  box-shadow: 0 10px 18px rgba(90, 79, 70, 0.05);
+}
+
+.plant-delete-button {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(194, 137, 137, 0.12);
+  color: #b47f7f;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.plant-delete-button span {
+  transform: translateY(-1px);
+}
+
+.plant-item-main {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.plant-emoji {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.plant-copy {
+  min-width: 0;
+}
+
+.plant-name {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.plant-status {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.plant-side {
+  display: grid;
+  justify-items: end;
+  gap: 8px;
+}
+
+.plant-days {
+  font-size: 13px;
+  color: var(--primary-strong);
+}
+
+.plant-water-button {
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--primary-strong);
+  font-size: 12px;
+  box-shadow: 0 4px 10px rgba(90, 79, 70, 0.04);
+}
+
+.plant-progress-track {
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(166, 197, 150, 0.2);
+  overflow: hidden;
+}
+
+.plant-progress-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #7fb36e 0%, #95c983 100%);
 }
 
 .checklist-toggle-button,
@@ -1055,26 +1228,27 @@ textarea {
   gap: 12px;
   min-height: 108px;
   border-radius: 20px;
-  border: 1px solid rgba(217, 206, 195, 0.55);
+  border: 1px solid rgba(217, 206, 195, 0.62);
   padding: 16px 14px;
   color: var(--foreground);
   text-align: left;
+  box-shadow: 0 8px 18px rgba(90, 79, 70, 0.04);
 }
 
 .feature-warm {
-  background: #eee4da;
+  background: #ede3d7;
 }
 
 .feature-lavender {
-  background: #f0eef7;
+  background: #efe8e4;
 }
 
 .feature-sage {
-  background: #edf4ec;
+  background: #e8eee6;
 }
 
 .feature-rose {
-  background: #f5ecec;
+  background: #f1e7e2;
 }
 
 .feature-emoji {
@@ -1093,6 +1267,365 @@ textarea {
   letter-spacing: 0;
   text-transform: none;
   line-height: 1.5;
+}
+
+.plant-garden-page {
+  position: relative;
+  flex: 1;
+  min-height: 100%;
+  overflow-y: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding:
+    calc(18px + var(--safe-top))
+    calc(16px + var(--safe-right))
+    calc(28px + var(--safe-bottom))
+    calc(16px + var(--safe-left));
+  background:
+    radial-gradient(circle at 16% 14%, rgba(143, 168, 130, 0.14), transparent 34%),
+    radial-gradient(circle at 86% 22%, rgba(122, 184, 196, 0.12), transparent 28%),
+    linear-gradient(180deg, #faf7f0 0%, #f2ede2 100%);
+}
+
+.plant-garden-page::-webkit-scrollbar {
+  display: none;
+}
+
+.plant-garden-topbar {
+  display: flex;
+  justify-content: flex-start;
+  margin-bottom: 10px;
+}
+
+.plant-garden-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.plant-garden-back svg {
+  width: 16px;
+  height: 16px;
+}
+
+.plant-garden-header {
+  text-align: center;
+  padding: 14px 0 18px;
+}
+
+.plant-garden-deco {
+  font-size: 30px;
+  margin-bottom: 6px;
+  opacity: 0.76;
+}
+
+.plant-garden-header h2 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+}
+
+.plant-garden-header p {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  font-style: italic;
+}
+
+.plant-garden-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.plant-season-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(232, 240, 229, 0.9);
+  border: 1px solid rgba(143, 168, 130, 0.16);
+  color: #6a7a62;
+  font-size: 12px;
+}
+
+.plant-season-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #8fa882;
+  box-shadow: 0 0 0 4px rgba(143, 168, 130, 0.14);
+}
+
+.plant-primary-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  border-radius: 999px;
+  background: #5a7a52;
+  color: #fff;
+  box-shadow: 0 10px 22px rgba(90, 122, 82, 0.2);
+}
+
+.plant-primary-button svg {
+  width: 15px;
+  height: 15px;
+}
+
+.plant-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.plant-stat-card {
+  padding: 14px 12px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(143, 168, 130, 0.14);
+  text-align: center;
+}
+
+.plant-stat-number {
+  display: block;
+  font-size: 22px;
+  color: #5a7a52;
+  font-weight: 700;
+}
+
+.plant-stat-label {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: 0.05em;
+}
+
+.plant-garden-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.garden-plant-card {
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(143, 168, 130, 0.15);
+  overflow: hidden;
+  box-shadow: 0 12px 28px rgba(80, 100, 70, 0.08);
+}
+
+.garden-plant-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+  padding: 18px 18px 14px;
+  background: rgba(232, 240, 229, 0.62);
+}
+
+.garden-plant-visual {
+  font-size: 42px;
+  line-height: 1;
+}
+
+.garden-plant-meta h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.garden-plant-meta p {
+  margin: 4px 0 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-style: italic;
+}
+
+.garden-stage-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+}
+
+.garden-stage-badge.stage-seed {
+  background: rgba(196, 168, 130, 0.22);
+  color: #9e7c5a;
+}
+
+.garden-stage-badge.stage-sprout {
+  background: rgba(196, 212, 187, 0.28);
+  color: #5a7a52;
+}
+
+.garden-stage-badge.stage-growing {
+  background: rgba(212, 230, 207, 0.32);
+  color: #6b8c5e;
+}
+
+.garden-stage-badge.stage-mature {
+  background: rgba(232, 201, 106, 0.24);
+  color: #8a6020;
+}
+
+.garden-plant-remove {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1;
+}
+
+.garden-progress-section {
+  padding: 0 18px 14px;
+}
+
+.garden-progress-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+  color: #6a7a62;
+  font-size: 12px;
+}
+
+.garden-progress-track {
+  height: 8px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: #f0ebe0;
+}
+
+.garden-progress-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+}
+
+.garden-progress-fill.water {
+  background: linear-gradient(90deg, #93c8d4 0%, #7ab8c4 100%);
+}
+
+.garden-plant-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 18px 16px;
+}
+
+.garden-last-care {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.garden-water-button {
+  padding: 7px 12px;
+  border-radius: 12px;
+  background: rgba(214, 238, 242, 0.9);
+  border: 1px solid rgba(122, 184, 196, 0.26);
+  color: #557e87;
+  font-size: 12px;
+}
+
+.plant-feed-card {
+  margin-top: 18px;
+  padding: 16px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid rgba(143, 168, 130, 0.14);
+}
+
+.plant-feed-title {
+  margin-bottom: 10px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #6a7a62;
+  letter-spacing: 0.08em;
+}
+
+.plant-feed-list {
+  display: grid;
+  gap: 8px;
+}
+
+.plant-feed-item {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  font-size: 12px;
+  color: var(--foreground);
+}
+
+.plant-feed-time {
+  color: var(--text-light);
+  white-space: nowrap;
+}
+
+.plant-garden-empty {
+  padding: 44px 18px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(143, 168, 130, 0.14);
+  text-align: center;
+  color: var(--muted);
+}
+
+.plant-garden-empty-icon {
+  font-size: 48px;
+  margin-bottom: 10px;
+}
+
+.plant-dialog-panel {
+  gap: 16px;
+}
+
+.plant-picker-block {
+  display: grid;
+  gap: 10px;
+}
+
+.settings-field-label {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.plant-emoji-picker {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.plant-emoji-option {
+  min-height: 46px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  border: 1px solid rgba(143, 168, 130, 0.18);
+  background: rgba(255, 255, 255, 0.9);
+  font-size: 24px;
+}
+
+.plant-emoji-option.active {
+  background: rgba(234, 240, 230, 0.94);
+  border-color: rgba(90, 122, 82, 0.32);
+  box-shadow: 0 8px 18px rgba(90, 122, 82, 0.08);
+}
+
+.plant-dialog-submit {
+  justify-content: center;
 }
 
 .status-hero-card {
@@ -1335,6 +1868,26 @@ textarea {
   white-space: nowrap;
 }
 
+.status-tag.status-mood-warm {
+  background: #eee4da;
+  color: #9a7e6a;
+}
+
+.status-tag.status-mood-rose {
+  background: #f4e7e7;
+  color: #9a7474;
+}
+
+.status-tag.status-mood-mist {
+  background: #edf0f4;
+  color: #72879c;
+}
+
+.status-tag.status-mood-glow {
+  background: #f3ead8;
+  color: #9c8863;
+}
+
 .status-delete-button {
   width: 34px;
   height: 34px;
@@ -1361,30 +1914,59 @@ textarea {
 .status-mood-chip {
   padding: 8px 14px;
   border-radius: 999px;
-  color: #836f62;
+  border: 1px solid transparent;
+  color: var(--status-mood-text, #836f62);
   font-size: 12px;
+  background: var(--status-mood-bg, rgba(168, 144, 128, 0.12));
+  transition:
+    transform 160ms ease,
+    box-shadow 180ms ease,
+    background-color 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease;
 }
 
 .status-mood-warm {
-  background: #eee4da;
+  --status-mood-bg: #eee4da;
+  --status-mood-text: #9a7e6a;
+  --status-mood-active-bg: #e2cbb9;
+  --status-mood-active-text: #7e6352;
+  --status-mood-active-border: rgba(154, 126, 106, 0.34);
+  --status-mood-shadow: rgba(197, 171, 148, 0.2);
 }
 
 .status-mood-rose {
-  background: #f4e7e7;
+  --status-mood-bg: #f4e7e7;
+  --status-mood-text: #9a7474;
+  --status-mood-active-bg: #ead2d2;
+  --status-mood-active-text: #835f5f;
+  --status-mood-active-border: rgba(154, 116, 116, 0.34);
+  --status-mood-shadow: rgba(214, 184, 184, 0.22);
 }
 
 .status-mood-mist {
-  background: #edf0f4;
+  --status-mood-bg: #edf0f4;
+  --status-mood-text: #72879c;
+  --status-mood-active-bg: #dbe6f1;
+  --status-mood-active-text: #5e7388;
+  --status-mood-active-border: rgba(114, 135, 156, 0.32);
+  --status-mood-shadow: rgba(184, 202, 220, 0.24);
 }
 
 .status-mood-glow {
-  background: #f3ead8;
+  --status-mood-bg: #f3ead8;
+  --status-mood-text: #9c8863;
+  --status-mood-active-bg: #ebdfc4;
+  --status-mood-active-text: #836f4f;
+  --status-mood-active-border: rgba(156, 136, 99, 0.3);
+  --status-mood-shadow: rgba(214, 198, 165, 0.24);
 }
 
 .status-mood-chip.active {
-  background: #a89080;
-  color: #fff;
-  box-shadow: 0 10px 22px rgba(168, 144, 128, 0.22);
+  background: var(--status-mood-active-bg, var(--status-mood-bg, rgba(168, 144, 128, 0.12)));
+  color: var(--status-mood-active-text, var(--status-mood-text, #836f62));
+  border-color: var(--status-mood-active-border, transparent);
+  box-shadow: 0 10px 22px var(--status-mood-shadow, rgba(168, 144, 128, 0.22));
 }
 
 .status-compose-tools {
@@ -1546,13 +2128,13 @@ textarea {
 }
 
 .status-heart.active {
-  color: #9b7b6a;
+  color: #8f796a;
 }
 
 .status-action.active {
-  background: rgba(199, 223, 244, 0.3);
-  color: #5c748b;
-  border-color: rgba(199, 223, 244, 0.55);
+  background: rgba(212, 196, 183, 0.42);
+  color: #8f796a;
+  border-color: rgba(168, 144, 128, 0.48);
 }
 
 .status-meta {
@@ -2159,6 +2741,41 @@ textarea {
 
   .nest-editor-grid {
     grid-template-columns: 1fr;
+  }
+
+  .plant-garden-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .plant-stats-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .garden-plant-head,
+  .garden-plant-footer {
+    grid-template-columns: 1fr;
+    display: grid;
+  }
+
+  .garden-plant-remove {
+    justify-self: end;
+  }
+
+  .plant-emoji-picker {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .plant-item-main {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .plant-side {
+    grid-column: 1 / -1;
+    justify-items: start;
+    grid-template-columns: auto auto;
+    display: grid;
+    align-items: center;
   }
 
   .status-hero-top,

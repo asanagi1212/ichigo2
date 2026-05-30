@@ -27,6 +27,16 @@ const defaultChecklist = [
   }
 ];
 
+const defaultNestPlants = [
+  { id: "plant-pothos", emoji: "🪴", name: "绿萝", species: "黄金葛", days: 3, waterLevel: 0.26 },
+  { id: "plant-cactus", emoji: "🌵", name: "多肉", species: "仙人掌科", days: 12, waterLevel: 0.82 },
+  { id: "plant-lavender", emoji: "💐", name: "薰衣草", species: "Lavender", days: 1, waterLevel: 0.48 },
+  { id: "plant-sunflower", emoji: "🌻", name: "向日葵", species: "Sunflower", days: 7, waterLevel: 0.74 },
+  { id: "plant-strawberry", emoji: "🍓", name: "草莓", species: "Strawberry", days: 4, waterLevel: 0.58 },
+  { id: "plant-clover", emoji: "🍀", name: "幸运草", species: "Oxalis", days: 9, waterLevel: 0.67 },
+  { id: "plant-waterlily", emoji: "🪷", name: "睡莲", species: "Water Lily", days: 5, waterLevel: 0.63 }
+];
+
 const defaults = {
   mode: "mock",
   apiKey: "",
@@ -48,7 +58,10 @@ const defaults = {
   statusLittleUpdate: "little updates",
   statusSignature: "把喜欢、心情和每天的小碎片，慢慢留在这里。",
   nestStartDate: "2022-09-03",
-  nestChecklist: defaultChecklist
+  nestDailyNote: "今天也要好好吃饭、慢慢休息。\n忙的时候记得回来看看这里，我们把喜欢的日常一点点存起来。",
+  nestDailySign: "来自你的小窝",
+  nestChecklist: defaultChecklist,
+  nestPlants: defaultNestPlants
 };
 
 function sanitizeChecklist(value) {
@@ -92,6 +105,35 @@ function sanitizeChecklist(value) {
   return next.length > 0 ? next : sanitizeChecklist(null);
 }
 
+function sanitizeNestPlants(value) {
+  if (!Array.isArray(value) || value.length === 0) {
+    return defaultNestPlants.map((plant) => ({ ...plant }));
+  }
+
+  const next = value
+    .map((plant, index) => {
+      if (!plant || typeof plant !== "object") {
+        return null;
+      }
+
+      const waterLevel = Number.isFinite(Number(plant.waterLevel))
+        ? Math.max(0, Math.min(1, Number(plant.waterLevel)))
+        : 0.5;
+
+      return {
+        id: plant.id || `plant-${index + 1}`,
+        emoji: typeof plant.emoji === "string" && plant.emoji.trim() ? plant.emoji.trim() : "🪴",
+        name: typeof plant.name === "string" && plant.name.trim() ? plant.name.trim() : `植物 ${index + 1}`,
+        species: typeof plant.species === "string" ? plant.species.trim() : "",
+        days: Number.isFinite(Number(plant.days)) ? Math.max(1, Math.round(Number(plant.days))) : 1,
+        waterLevel
+      };
+    })
+    .filter(Boolean);
+
+  return next.length > 0 ? next : sanitizeNestPlants(null);
+}
+
 export function loadSettings() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -100,10 +142,15 @@ export function loadSettings() {
     return {
       ...defaults,
       ...parsed,
-      nestChecklist: sanitizeChecklist(parsed.nestChecklist)
+      nestChecklist: sanitizeChecklist(parsed.nestChecklist),
+      nestPlants: sanitizeNestPlants(parsed.nestPlants)
     };
   } catch {
-    return { ...defaults, nestChecklist: sanitizeChecklist(defaults.nestChecklist) };
+    return {
+      ...defaults,
+      nestChecklist: sanitizeChecklist(defaults.nestChecklist),
+      nestPlants: sanitizeNestPlants(defaults.nestPlants)
+    };
   }
 }
 
@@ -112,7 +159,8 @@ export function saveSettings(settings) {
     ...defaults,
     ...settings,
     model: typeof settings.model === "string" && settings.model.trim() ? settings.model.trim() : defaults.model,
-    nestChecklist: sanitizeChecklist(settings.nestChecklist)
+    nestChecklist: sanitizeChecklist(settings.nestChecklist),
+    nestPlants: sanitizeNestPlants(settings.nestPlants)
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
   return next;

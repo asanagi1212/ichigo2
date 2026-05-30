@@ -5,14 +5,14 @@ set "ROOT=%~dp0"
 cd /d "%ROOT%"
 
 set "PROJECT_NODE_HOME=%ROOT%tools\node-v22.15.1-win-x64"
-set "WORKSPACE_NODE_HOME=C:\Downloads\Documents\New project\tools\node-v22.15.1-win-x64"
+set "CODEX_NODE_HOME=%USERPROFILE%\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin"
 set "VITE_CLI=%ROOT%node_modules\vite\bin\vite.js"
 set "API_SERVER=%ROOT%server.js"
 
 if exist "%PROJECT_NODE_HOME%\node.exe" (
   set "NODE_HOME=%PROJECT_NODE_HOME%"
-) else if exist "%WORKSPACE_NODE_HOME%\node.exe" (
-  set "NODE_HOME=%WORKSPACE_NODE_HOME%"
+) else if exist "%CODEX_NODE_HOME%\node.exe" (
+  set "NODE_HOME=%CODEX_NODE_HOME%"
 )
 
 if defined NODE_HOME (
@@ -52,6 +52,12 @@ if not exist "%ROOT%node_modules" (
     echo [ERROR] npm install failed.
     pause
     exit /b 1
+  )
+)
+
+if not exist "%VITE_CLI%" (
+  if exist "%ROOT%node_modules\.pnpm\vite@6.4.2\node_modules\vite\bin\vite.js" (
+    set "VITE_CLI=%ROOT%node_modules\.pnpm\vite@6.4.2\node_modules\vite\bin\vite.js"
   )
 )
 

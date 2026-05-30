@@ -18,10 +18,10 @@ const initialMessages = [
 ];
 
 const nestFeatureCards = [
-  { title: "我们的日记", subtitle: "把细碎的开心都收进来", emoji: "📝", tone: "warm" },
-  { title: "记忆相册", subtitle: "留给以后反复翻看的瞬间", emoji: "🖼️", tone: "lavender" },
-  { title: "待办提醒", subtitle: "今天也一起把生活过顺", emoji: "📘", tone: "sage" },
-  { title: "心愿清单", subtitle: "想做的事慢慢实现", emoji: "💍", tone: "rose" }
+  { id: "diary", title: "我们的日记", subtitle: "把细碎的开心都收进来", emoji: "📝", tone: "warm" },
+  { id: "album", title: "记忆相册", subtitle: "留给以后反复翻看的瞬间", emoji: "🖼️", tone: "lavender" },
+  { id: "plants", title: "我的植物", subtitle: "照料一座安静的小森林", emoji: "🪴", tone: "sage" },
+  { id: "wishlist", title: "心愿清单", subtitle: "想做的事慢慢实现", emoji: "💍", tone: "rose" }
 ];
 
 const statusMoodOptions = [
@@ -30,6 +30,28 @@ const statusMoodOptions = [
   { value: "轻松", accent: "mist" },
   { value: "心动", accent: "warm" }
 ];
+
+const nestPlantSuggestions = [
+  { emoji: "🪴", name: "绿萝", species: "黄金葛", days: 2, waterLevel: 0.34 },
+  { emoji: "🌵", name: "多肉", species: "仙人掌科", days: 8, waterLevel: 0.78 },
+  { emoji: "🌿", name: "薄荷", species: "Mentha", days: 1, waterLevel: 0.58 },
+  { emoji: "🌼", name: "小雏菊", species: "Daisy", days: 4, waterLevel: 0.43 },
+  { emoji: "🍀", name: "幸运草", species: "Oxalis", days: 6, waterLevel: 0.68 },
+  { emoji: "🌸", name: "樱花", species: "Cherry Blossom", days: 3, waterLevel: 0.51 },
+  { emoji: "🌺", name: "扶桑花", species: "Hibiscus", days: 5, waterLevel: 0.56 },
+  { emoji: "🌻", name: "向日葵", species: "Sunflower", days: 7, waterLevel: 0.72 },
+  { emoji: "🌷", name: "郁金香", species: "Tulipa", days: 2, waterLevel: 0.47 },
+  { emoji: "🌱", name: "小芽", species: "Seedling", days: 1, waterLevel: 0.62 },
+  { emoji: "🍃", name: "小叶子", species: "Leaf Vine", days: 4, waterLevel: 0.64 },
+  { emoji: "🌾", name: "芦苇", species: "Reed Grass", days: 6, waterLevel: 0.53 },
+  { emoji: "🪷", name: "睡莲", species: "Water Lily", days: 5, waterLevel: 0.69 },
+  { emoji: "🫐", name: "蓝莓", species: "Blueberry", days: 3, waterLevel: 0.59 },
+  { emoji: "🍓", name: "草莓", species: "Strawberry", days: 4, waterLevel: 0.61 }
+];
+
+function getStatusMoodAccent(moodValue) {
+  return statusMoodOptions.find((mood) => mood.value === moodValue)?.accent || "glow";
+}
 
 function createPastTimestamp(hoursAgo) {
   return new Date(Date.now() - hoursAgo * 60 * 60 * 1000).toISOString();
@@ -1216,6 +1238,43 @@ function CommentIcon() {
   );
 }
 
+function ChevronDownIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        d="m6 9 6 6 6-6"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+    </svg>
+  );
+}
+
+function getPlantStage(plant) {
+  const growthScore = plant.days * 8 + plant.waterLevel * 100;
+
+  if (growthScore >= 120) {
+    return { label: "繁茂", emoji: "✨", tone: "mature" };
+  }
+
+  if (growthScore >= 80) {
+    return { label: "生长", emoji: "🌿", tone: "growing" };
+  }
+
+  if (growthScore >= 40) {
+    return { label: "幼苗", emoji: "🌱", tone: "sprout" };
+  }
+
+  return { label: "新芽", emoji: "🌰", tone: "seed" };
+}
+
+function formatGardenClock(date = new Date()) {
+  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+}
+
 function StatusTabIcon() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -1321,6 +1380,32 @@ function getStatusProfile(settings) {
 
 function getStatusAuthor(settings) {
   return getStatusProfile(settings);
+}
+
+function getNestDailyCard(settings) {
+  return {
+    content:
+      settings.nestDailyNote ||
+      "今天也要好好吃饭、慢慢休息。\n忙的时候记得回来看看这里，我们把喜欢的日常一点点存起来。",
+    signature: settings.nestDailySign || "来自你的小窝"
+  };
+}
+
+function createStatusPost({ content, mood, imageDataUrl = "", imageName = "", own = true }) {
+  return {
+    id: createId(),
+    author: own ? "right" : "left",
+    own,
+    mood,
+    content,
+    imageDataUrl,
+    imageName,
+    timestamp: new Date().toISOString(),
+    likes: 0,
+    comments: 0,
+    commentsList: [],
+    liked: false
+  };
 }
 
 function StatusProfileEditor({ open, settings, onClose, onSave }) {
@@ -1487,8 +1572,211 @@ function StatusProfileEditor({ open, settings, onClose, onSave }) {
   );
 }
 
-function NestPage({ settings, onSaveHeroSettings, onSaveChecklist }) {
+function PlantComposerDialog({ open, onClose, onCreate }) {
+  const dialogRef = useRef(null);
+  const [draftName, setDraftName] = useState("");
+  const [selectedEmoji, setSelectedEmoji] = useState(nestPlantSuggestions[0]?.emoji || "🪴");
+
+  useEffect(() => {
+    if (open) {
+      setDraftName("");
+      setSelectedEmoji(nestPlantSuggestions[0]?.emoji || "🪴");
+    }
+  }, [open]);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) {
+      return;
+    }
+
+    if (open && !dialog.open) {
+      dialog.showModal();
+    }
+
+    if (!open && dialog.open) {
+      dialog.close();
+    }
+  }, [open]);
+
+  function handleSubmit(event) {
+    event.preventDefault();
+    const preset = nestPlantSuggestions.find((plant) => plant.emoji === selectedEmoji) || nestPlantSuggestions[0];
+    onCreate({
+      emoji: selectedEmoji,
+      name: draftName.trim() || preset.name,
+      species: preset.species,
+      days: 1,
+      waterLevel: 0.62
+    });
+  }
+
+  return (
+    <dialog className="sheet-dialog plant-dialog" ref={dialogRef} onClose={onClose}>
+      <form className="sheet-panel plant-dialog-panel" method="dialog" onSubmit={handleSubmit}>
+        <div className="sheet-handle" aria-hidden="true"></div>
+        <div className="sheet-header">
+          <div>
+            <p className="settings-kicker">Plant</p>
+            <h2>种下新植物</h2>
+          </div>
+          <button className="ghost-button" type="button" onClick={onClose}>
+            关闭
+          </button>
+        </div>
+
+        <label className="settings-field">
+          <span>植物名字</span>
+          <input
+            type="text"
+            value={draftName}
+            onChange={(event) => setDraftName(event.target.value)}
+            placeholder="给它起个名字"
+            maxLength="12"
+          />
+        </label>
+
+        <div className="plant-picker-block">
+          <span className="settings-field-label">选择植物</span>
+          <div className="plant-emoji-picker" role="list" aria-label="选择植物图标">
+            {nestPlantSuggestions.map((plant) => (
+              <button
+                key={`${plant.emoji}-${plant.name}`}
+                className={`plant-emoji-option ${selectedEmoji === plant.emoji ? "active" : ""}`}
+                type="button"
+                onClick={() => setSelectedEmoji(plant.emoji)}
+                title={plant.name}
+              >
+                <span>{plant.emoji}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <button className="primary-button plant-dialog-submit" type="submit">
+          种下植物
+        </button>
+      </form>
+    </dialog>
+  );
+}
+
+function PlantGardenPage({ plants, gardenDays, feedItems, onBack, onOpenComposer, onWaterPlant, onDeletePlant }) {
+  const healthyCount = plants.filter((plant) => plant.waterLevel >= 0.72).length;
+  const thirstyCount = plants.filter((plant) => plant.waterLevel < 0.42).length;
+
+  return (
+    <section className="plant-garden-page">
+      <div className="plant-garden-topbar">
+        <button className="ghost-button plant-garden-back" type="button" onClick={onBack}>
+          <BackIcon />
+          <span>返回小窝</span>
+        </button>
+      </div>
+
+      <header className="plant-garden-header">
+        <div className="plant-garden-deco">🌿</div>
+        <h2>小森林花园</h2>
+        <p>A quiet place where little things grow</p>
+      </header>
+
+      <div className="plant-garden-toolbar">
+        <div className="plant-season-pill">
+          <span className="plant-season-dot"></span>
+          <span>初夏 · 万物生长</span>
+        </div>
+        <button className="plant-primary-button" type="button" onClick={onOpenComposer}>
+          <PlusIcon />
+          <span>种下新植物</span>
+        </button>
+      </div>
+
+      <div className="plant-stats-grid">
+        <article className="plant-stat-card">
+          <span className="plant-stat-number">{plants.length}</span>
+          <span className="plant-stat-label">植物总数</span>
+        </article>
+        <article className="plant-stat-card">
+          <span className="plant-stat-number">{healthyCount}</span>
+          <span className="plant-stat-label">状态稳定</span>
+        </article>
+        <article className="plant-stat-card">
+          <span className="plant-stat-number">{thirstyCount}</span>
+          <span className="plant-stat-label">等待浇水</span>
+        </article>
+        <article className="plant-stat-card">
+          <span className="plant-stat-number">{gardenDays}</span>
+          <span className="plant-stat-label">花园天数</span>
+        </article>
+      </div>
+
+      {plants.length > 0 ? (
+        <div className="plant-garden-grid">
+          {plants.map((plant) => {
+            const stage = getPlantStage(plant);
+            const waterPercent = Math.round(plant.waterLevel * 100);
+
+            return (
+              <article key={plant.id} className="garden-plant-card">
+                <div className="garden-plant-head">
+                  <div className="garden-plant-visual">{plant.emoji}</div>
+                  <div className="garden-plant-meta">
+                    <h3>{plant.name}</h3>
+                    <p>{plant.species || "神秘植物"}</p>
+                    <span className={`garden-stage-badge stage-${stage.tone}`}>{stage.emoji} {stage.label}</span>
+                  </div>
+                  <button className="garden-plant-remove" type="button" aria-label={`移除${plant.name}`} onClick={() => onDeletePlant(plant.id)}>
+                    ×
+                  </button>
+                </div>
+
+                <div className="garden-progress-section">
+                  <div className="garden-progress-row">
+                    <span>💧 水分状态</span>
+                    <span>{waterPercent}%</span>
+                  </div>
+                  <div className="garden-progress-track">
+                    <span className="garden-progress-fill water" style={{ width: `${waterPercent}%` }}></span>
+                  </div>
+                </div>
+
+                <div className="garden-plant-footer">
+                  <span className="garden-last-care">养了 {plant.days} 天</span>
+                  <button className="garden-water-button" type="button" onClick={() => onWaterPlant(plant.id)}>
+                    浇水
+                  </button>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="plant-garden-empty">
+          <div className="plant-garden-empty-icon">🌱</div>
+          <p>你的小森林还空着，点上面的按钮种下第一株植物吧。</p>
+        </div>
+      )}
+
+      <section className="plant-feed-card">
+        <div className="plant-feed-title">🍃 花园日志</div>
+        <div className="plant-feed-list">
+          {feedItems.map((item) => (
+            <div key={item.id} className="plant-feed-item">
+              <span className="plant-feed-time">{item.time}</span>
+              <span className="plant-feed-icon">{item.icon}</span>
+              <span>{item.text}</span>
+            </div>
+          ))}
+        </div>
+      </section>
+    </section>
+  );
+}
+
+function NestPage({ settings, onSaveHeroSettings, onSaveChecklist, onSavePlants }) {
   const checklist = settings.nestChecklist || [];
+  const plants = settings.nestPlants || [];
+  const dailyCard = getNestDailyCard(settings);
   const nestPageRef = useRef(null);
   const leftFileInputRef = useRef(null);
   const rightFileInputRef = useRef(null);
@@ -1503,8 +1791,20 @@ function NestPage({ settings, onSaveHeroSettings, onSaveChecklist }) {
     nestStartDate: settings.nestStartDate || ""
   });
   const [checklistDraft, setChecklistDraft] = useState(checklist);
+  const [plantsDraft, setPlantsDraft] = useState(plants);
   const [activeHeroEditor, setActiveHeroEditor] = useState(null);
   const [activeChecklistEditor, setActiveChecklistEditor] = useState(null);
+  const [checklistOpen, setChecklistOpen] = useState(false);
+  const [activeNestView, setActiveNestView] = useState("home");
+  const [plantComposerOpen, setPlantComposerOpen] = useState(false);
+  const [plantFeed, setPlantFeed] = useState(() => [
+    {
+      id: createId(),
+      time: "刚刚",
+      icon: "🌿",
+      text: "花园悄悄开门了，等待你的第一株植物。"
+    }
+  ]);
 
   useEffect(() => {
     setHeroDraft({
@@ -1529,6 +1829,16 @@ function NestPage({ settings, onSaveHeroSettings, onSaveChecklist }) {
   useEffect(() => {
     setChecklistDraft(checklist);
   }, [checklist]);
+
+  useEffect(() => {
+    setPlantsDraft(plants);
+  }, [plants]);
+
+  useEffect(() => {
+    if (activeChecklistEditor) {
+      setChecklistOpen(true);
+    }
+  }, [activeChecklistEditor]);
 
   useEffect(() => {
     return () => {
@@ -1661,6 +1971,22 @@ function NestPage({ settings, onSaveHeroSettings, onSaveChecklist }) {
     if (persist) {
       onSaveChecklist(nextChecklist);
     }
+  }
+
+  function persistPlants(nextPlants) {
+    setPlantsDraft(nextPlants);
+    onSavePlants(nextPlants);
+  }
+
+  function pushPlantFeed(icon, text) {
+    const nextEntry = {
+      id: createId(),
+      time: formatGardenClock(),
+      icon,
+      text
+    };
+
+    setPlantFeed((current) => [nextEntry, ...current].slice(0, 8));
   }
 
   function toggleItem(sectionId, itemId) {
@@ -1807,11 +2133,88 @@ function NestPage({ settings, onSaveHeroSettings, onSaveChecklist }) {
     );
   }
 
+  function handleAddPlant() {
+    setPlantComposerOpen(true);
+  }
+
+  function handleCreatePlant(nextPlant) {
+    const nextPlants = [
+      ...plantsDraft,
+      {
+        id: createId(),
+        emoji: nextPlant.emoji,
+        name: nextPlant.name,
+        species: nextPlant.species,
+        days: nextPlant.days,
+        waterLevel: nextPlant.waterLevel
+      }
+    ];
+
+    persistPlants(nextPlants);
+    setPlantComposerOpen(false);
+    setActiveNestView("plants");
+    pushPlantFeed("🌱", `种下了「${nextPlant.name}」，它开始在花园里慢慢长大。`);
+  }
+
+  function handleWaterPlant(plantId) {
+    let wateredPlantName = "";
+    const nextPlants = plantsDraft.map((plant) =>
+      plant.id !== plantId
+        ? plant
+        : {
+            ...plant,
+            days: plant.days + 1,
+            species: plant.species || "",
+            name: (() => {
+              wateredPlantName = plant.name;
+              return plant.name;
+            })(),
+            waterLevel: Math.min(1, Math.round((plant.waterLevel + 0.22) * 100) / 100)
+          }
+    );
+
+    persistPlants(nextPlants);
+    if (wateredPlantName) {
+      pushPlantFeed("💧", `给「${wateredPlantName}」浇了水，叶片看起来更有精神了。`);
+    }
+  }
+
+  function handleDeletePlant(plantId) {
+    const targetPlant = plantsDraft.find((plant) => plant.id === plantId);
+    const nextPlants = plantsDraft.filter((plant) => plant.id !== plantId);
+    persistPlants(nextPlants);
+    if (targetPlant) {
+      pushPlantFeed("🍂", `「${targetPlant.name}」离开了花园，愿它在别处继续生长。`);
+    }
+  }
+
   const previewHero = activeHeroEditor ? heroDraft : settings;
   const days = daysSince(previewHero.nestStartDate);
 
+  if (activeNestView === "plants") {
+    return (
+      <>
+        <PlantGardenPage
+          plants={plantsDraft}
+          gardenDays={Math.max(days, 1)}
+          feedItems={plantFeed}
+          onBack={() => setActiveNestView("home")}
+          onOpenComposer={() => setPlantComposerOpen(true)}
+          onWaterPlant={handleWaterPlant}
+          onDeletePlant={handleDeletePlant}
+        />
+        <PlantComposerDialog
+          open={plantComposerOpen}
+          onClose={() => setPlantComposerOpen(false)}
+          onCreate={handleCreatePlant}
+        />
+      </>
+    );
+  }
+
   return (
-    <div className="nest-page" ref={nestPageRef}>
+    <>
+      <div className="nest-page" ref={nestPageRef}>
       <input
         ref={leftFileInputRef}
         className="hidden-input"
@@ -1932,118 +2335,129 @@ function NestPage({ settings, onSaveHeroSettings, onSaveChecklist }) {
           <span className="section-emoji">💌</span>
           <span className="section-title">今日小纸条</span>
         </div>
-        <p className="daily-copy">
-          今天也要好好吃饭、慢慢休息。
-          <br />
-          忙的时候记得回来看看这里，我们把喜欢的日常一点点存起来。
-        </p>
-        <p className="daily-sign">- 来自你的小窝</p>
+        <p className="daily-copy">{dailyCard.content}</p>
+        <p className="daily-sign">- {dailyCard.signature}</p>
       </section>
 
       <section className="nest-card checklist-card">
-        <div className="card-header-row">
+        <button
+          className={`checklist-accordion-trigger ${checklistOpen ? "open" : ""}`}
+          type="button"
+          onClick={() => setChecklistOpen((current) => !current)}
+          aria-expanded={checklistOpen}
+        >
           <div className="section-title-row">
             <span className="section-emoji">🌷</span>
             <span className="section-title">请记住</span>
           </div>
-        </div>
+          <span className="checklist-accordion-icon" aria-hidden="true">
+            <ChevronDownIcon />
+          </span>
+        </button>
 
-        <div className="checklist-groups">
-          {checklistDraft.map((section) => (
-            <div key={section.id} className="checklist-group">
-              {activeChecklistEditor?.type === "section" && activeChecklistEditor.sectionId === section.id ? (
-                <div className="checklist-inline-group-head" onBlur={handleChecklistTextBlur} onKeyDown={handleChecklistTextKeyDown}>
-                  <input
-                    className="checklist-inline-group-input"
-                    type="text"
-                    value={section.label}
-                    onChange={(event) => handleSectionLabelChange(section.id, event.target.value)}
-                    placeholder="分组标题"
-                    autoFocus
-                  />
-                  <button className="ghost-button ghost-button-muted inline-mini-button" type="button" onClick={() => handleRemoveChecklistSection(section.id)}>
-                    删组
-                  </button>
-                </div>
-              ) : (
-                <div className="checklist-inline-group-head">
-                  <button
-                    className="plain-inline-trigger checklist-label-trigger"
-                    type="button"
-                    onClick={() => setActiveChecklistEditor({ type: "section", sectionId: section.id })}
-                  >
-                    {section.label}
-                  </button>
-                </div>
-              )}
-
-              <div className="checklist-items">
-                {section.items.map((item) =>
-                  activeChecklistEditor?.type === "item" &&
-                  activeChecklistEditor.sectionId === section.id &&
-                  activeChecklistEditor.itemId === item.id ? (
-                    <div key={item.id} className="checklist-inline-item-edit" onBlur={handleChecklistTextBlur} onKeyDown={handleChecklistTextKeyDown}>
-                      <label className="checklist-inline-toggle">
-                        <input
-                          type="checkbox"
-                          checked={item.checked}
-                          onChange={() => toggleItem(section.id, item.id)}
-                        />
-                      </label>
-                      <input
-                        className="checklist-inline-item-input"
-                        type="text"
-                        value={item.label}
-                        onChange={(event) => handleChecklistItemChange(section.id, item.id, event.target.value)}
-                        placeholder="提醒内容"
-                        autoFocus
-                      />
-                      <button className="ghost-button ghost-button-muted inline-mini-button" type="button" onClick={() => handleRemoveChecklistItem(section.id, item.id)}>
-                        删除
-                      </button>
-                    </div>
-                  ) : (
-                    <div key={item.id} className="checklist-inline-read-row">
-                      <button className="checklist-toggle-button" type="button" onClick={() => toggleItem(section.id, item.id)} aria-label={item.checked ? "取消勾选" : "勾选"}>
-                        <span className={`checkbox-dot ${item.checked ? "checked" : ""}`}>
-                          {item.checked ? "✓" : ""}
-                        </span>
-                      </button>
-                      <button
-                        className={`checklist-text-button ${item.checked ? "checked-text" : ""}`}
-                        type="button"
-                        onClick={() => handleChecklistTextClick(section.id, item.id)}
-                        onDoubleClick={() => handleChecklistTextDoubleClick(section.id, item.id)}
-                      >
-                        {item.label}
-                      </button>
-                    </div>
-                  )
+        {checklistOpen ? (
+          <div className="checklist-groups">
+            {checklistDraft.map((section) => (
+              <div key={section.id} className="checklist-group">
+                {activeChecklistEditor?.type === "section" && activeChecklistEditor.sectionId === section.id ? (
+                  <div className="checklist-inline-group-head" onBlur={handleChecklistTextBlur} onKeyDown={handleChecklistTextKeyDown}>
+                    <input
+                      className="checklist-inline-group-input"
+                      type="text"
+                      value={section.label}
+                      onChange={(event) => handleSectionLabelChange(section.id, event.target.value)}
+                      placeholder="分组标题"
+                      autoFocus
+                    />
+                    <button className="ghost-button ghost-button-muted inline-mini-button" type="button" onClick={() => handleRemoveChecklistSection(section.id)}>
+                      删组
+                    </button>
+                  </div>
+                ) : (
+                  <div className="checklist-inline-group-head">
+                    <button
+                      className="plain-inline-trigger checklist-label-trigger"
+                      type="button"
+                      onClick={() => setActiveChecklistEditor({ type: "section", sectionId: section.id })}
+                    >
+                      {section.label}
+                    </button>
+                  </div>
                 )}
 
-                {activeChecklistEditor?.sectionId === section.id ? (
-                  <button className="ghost-button checklist-add-button" type="button" onClick={() => handleAddChecklistItem(section.id)}>
-                    新增提醒
-                  </button>
-                ) : null}
-              </div>
-            </div>
-          ))}
+                <div className="checklist-items">
+                  {section.items.map((item) =>
+                    activeChecklistEditor?.type === "item" &&
+                    activeChecklistEditor.sectionId === section.id &&
+                    activeChecklistEditor.itemId === item.id ? (
+                      <div key={item.id} className="checklist-inline-item-edit" onBlur={handleChecklistTextBlur} onKeyDown={handleChecklistTextKeyDown}>
+                        <label className="checklist-inline-toggle">
+                          <input
+                            type="checkbox"
+                            checked={item.checked}
+                            onChange={() => toggleItem(section.id, item.id)}
+                          />
+                        </label>
+                        <input
+                          className="checklist-inline-item-input"
+                          type="text"
+                          value={item.label}
+                          onChange={(event) => handleChecklistItemChange(section.id, item.id, event.target.value)}
+                          placeholder="提醒内容"
+                          autoFocus
+                        />
+                        <button className="ghost-button ghost-button-muted inline-mini-button" type="button" onClick={() => handleRemoveChecklistItem(section.id, item.id)}>
+                          删除
+                        </button>
+                      </div>
+                    ) : (
+                      <div key={item.id} className="checklist-inline-read-row">
+                        <button className="checklist-toggle-button" type="button" onClick={() => toggleItem(section.id, item.id)} aria-label={item.checked ? "取消勾选" : "勾选"}>
+                          <span className={`checkbox-dot ${item.checked ? "checked" : ""}`}>
+                            {item.checked ? "✓" : ""}
+                          </span>
+                        </button>
+                        <button
+                          className={`checklist-text-button ${item.checked ? "checked-text" : ""}`}
+                          type="button"
+                          onClick={() => handleChecklistTextClick(section.id, item.id)}
+                          onDoubleClick={() => handleChecklistTextDoubleClick(section.id, item.id)}
+                        >
+                          {item.label}
+                        </button>
+                      </div>
+                    )
+                  )}
 
-          {activeChecklistEditor ? (
-            <button className="ghost-button checklist-add-section-button" type="button" onClick={handleAddChecklistSection}>
-              新增分组
-            </button>
-          ) : null}
-        </div>
+                  {activeChecklistEditor?.sectionId === section.id ? (
+                    <button className="ghost-button checklist-add-button" type="button" onClick={() => handleAddChecklistItem(section.id)}>
+                      新增提醒
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            ))}
+
+            {activeChecklistEditor ? (
+              <button className="ghost-button checklist-add-section-button" type="button" onClick={handleAddChecklistSection}>
+                新增分组
+              </button>
+            ) : null}
+          </div>
+        ) : null}
       </section>
 
       <section className="feature-grid">
         {nestFeatureCards.map((feature) => (
           <button
-            key={feature.title}
+            key={feature.id}
             className={`feature-card feature-${feature.tone}`}
             type="button"
+            onClick={() => {
+              if (feature.id === "plants") {
+                setActiveNestView("plants");
+              }
+            }}
           >
             <span className="feature-emoji">{feature.emoji}</span>
             <div>
@@ -2053,7 +2467,13 @@ function NestPage({ settings, onSaveHeroSettings, onSaveChecklist }) {
           </button>
         ))}
       </section>
-    </div>
+      </div>
+      <PlantComposerDialog
+        open={plantComposerOpen}
+        onClose={() => setPlantComposerOpen(false)}
+        onCreate={handleCreatePlant}
+      />
+    </>
   );
 }
 
@@ -2221,20 +2641,12 @@ function StatusPage({ settings, onSaveStatusPosts, onSaveStatusProfile }) {
     }
 
     const nextPosts = [
-      {
-        id: createId(),
-        author: "right",
-        own: true,
-        mood: activeMood,
+      createStatusPost({
         content,
+        mood: activeMood,
         imageDataUrl: pendingImage?.dataUrl || "",
-        imageName: pendingImage?.name || "",
-        timestamp: new Date().toISOString(),
-        likes: 0,
-        comments: 0,
-        commentsList: [],
-        liked: false
-      },
+        imageName: pendingImage?.name || ""
+      }),
       ...posts
     ];
 
@@ -2454,7 +2866,7 @@ function StatusPage({ settings, onSaveStatusPosts, onSaveStatusProfile }) {
                         <TrashIcon />
                       </button>
                     ) : null}
-                    <span className="status-tag">#{post.mood}</span>
+                    <span className={`status-tag status-mood-${getStatusMoodAccent(post.mood)}`}>#{post.mood}</span>
                   </div>
                 </div>
 
@@ -2815,6 +3227,7 @@ export default function App() {
   const textareaRef = useRef(null);
   const imageInputRef = useRef(null);
   const composerRef = useRef(null);
+  const settingsRef = useRef(settings);
   const { onComposerPointerDown } = useKeyboardCompat({
     activeTab,
     composerRef,
@@ -2823,6 +3236,10 @@ export default function App() {
     messages,
     textareaRef
   });
+
+  useEffect(() => {
+    settingsRef.current = settings;
+  }, [settings]);
 
   useEffect(() => {
     if (!modeMenuOpen) {
@@ -2863,6 +3280,11 @@ export default function App() {
     setSettings(saved);
   }
 
+  function handleNestPlantsUpdate(nextPlants) {
+    const saved = saveSettings({ ...settings, nestPlants: nextPlants });
+    setSettings(saved);
+  }
+
   function handleStatusPostsUpdate(nextPosts) {
     const saved = saveSettings({ ...settings, statusPosts: nextPosts });
     setSettings(saved);
@@ -2871,6 +3293,119 @@ export default function App() {
   function handleStatusProfileUpdate(nextSettings) {
     const saved = saveSettings(nextSettings);
     setSettings(saved);
+  }
+
+  function buildAssistantAppContext(currentSettings) {
+    const dailyCard = getNestDailyCard(currentSettings);
+    return {
+      dailyNote: dailyCard,
+      plants: (currentSettings.nestPlants || []).map((plant) => ({
+        id: plant.id,
+        name: plant.name,
+        species: plant.species,
+        waterLevel: plant.waterLevel,
+        days: plant.days
+      })),
+      statusProfile: getStatusProfile(currentSettings),
+      allowedStatusMoods: statusMoodOptions.map((mood) => mood.value)
+    };
+  }
+
+  function applyAssistantActions(actions) {
+    if (!actions || typeof actions !== "object") {
+      return;
+    }
+
+    let nextSettings = settingsRef.current;
+    let hasUpdates = false;
+
+    if (actions.dailyNote && typeof actions.dailyNote === "object") {
+      const nextContent =
+        typeof actions.dailyNote.content === "string" && actions.dailyNote.content.trim()
+          ? actions.dailyNote.content.trim()
+          : nextSettings.nestDailyNote;
+      const nextSignature =
+        typeof actions.dailyNote.signature === "string" && actions.dailyNote.signature.trim()
+          ? actions.dailyNote.signature.trim()
+          : nextSettings.nestDailySign;
+
+      if (
+        nextContent !== nextSettings.nestDailyNote ||
+        nextSignature !== nextSettings.nestDailySign
+      ) {
+        nextSettings = saveSettings({
+          ...nextSettings,
+          nestDailyNote: nextContent,
+          nestDailySign: nextSignature
+        });
+        hasUpdates = true;
+      }
+    }
+
+    if (actions.waterPlant && typeof actions.waterPlant === "object") {
+      const targetName =
+        typeof actions.waterPlant.name === "string" ? actions.waterPlant.name.trim() : "";
+      const targetId =
+        typeof actions.waterPlant.id === "string" ? actions.waterPlant.id.trim() : "";
+      const targetIndex = (nextSettings.nestPlants || []).findIndex((plant) => {
+        if (targetId && plant.id === targetId) {
+          return true;
+        }
+
+        return targetName && plant.name === targetName;
+      });
+
+      if (targetIndex >= 0) {
+        const nextPlants = nextSettings.nestPlants.map((plant, index) =>
+          index !== targetIndex
+            ? plant
+            : {
+                ...plant,
+                days: Math.max(1, Number(plant.days || 1) + 1),
+                waterLevel: Math.min(
+                  1,
+                  Math.round((Number(plant.waterLevel || 0.5) + 0.22) * 100) / 100
+                )
+              }
+        );
+
+        nextSettings = saveSettings({
+          ...nextSettings,
+          nestPlants: nextPlants
+        });
+        hasUpdates = true;
+      }
+    }
+
+    if (actions.createStatus && typeof actions.createStatus === "object") {
+      const nextContent =
+        typeof actions.createStatus.content === "string"
+          ? actions.createStatus.content.trim()
+          : "";
+      const nextMood = statusMoodOptions.some((mood) => mood.value === actions.createStatus.mood)
+        ? actions.createStatus.mood
+        : statusMoodOptions[0].value;
+
+      if (nextContent) {
+        const nextPosts = [
+          createStatusPost({
+            content: nextContent,
+            mood: nextMood
+          }),
+          ...normalizeStatusPosts(nextSettings.statusPosts)
+        ];
+
+        nextSettings = saveSettings({
+          ...nextSettings,
+          statusPosts: nextPosts
+        });
+        hasUpdates = true;
+      }
+    }
+
+    if (hasUpdates) {
+      setSettings(nextSettings);
+    }
   }
 
   function handleSelectMode(mode) {
@@ -2959,8 +3494,16 @@ export default function App() {
     try {
       const reply = await getAssistantReply(
         nextMessages.filter((item) => !item.pending),
-        settings
+        settings,
+        buildAssistantAppContext(settingsRef.current)
       );
+      const replyContent =
+        typeof reply === "string" ? reply : reply?.content || "我已经帮你处理好了。";
+      const replyActions = typeof reply === "string" ? null : reply?.actions || null;
+
+      if (replyActions) {
+        applyAssistantActions(replyActions);
+      }
 
       setMessages((current) =>
         current.map((message) =>
@@ -2968,7 +3511,7 @@ export default function App() {
             ? {
                 ...message,
                 pending: false,
-                content: reply,
+                content: replyContent,
                 timestamp: new Date().toISOString()
               }
             : message
@@ -3032,6 +3575,7 @@ export default function App() {
                 settings={settings}
                 onSaveHeroSettings={handleNestHeroUpdate}
                 onSaveChecklist={handleChecklistUpdate}
+                onSavePlants={handleNestPlantsUpdate}
               />
             )}
           </div>
